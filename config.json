@@ -1,0 +1,25 @@
+{
+  "analysis": {
+    "enableRuleBased": true,
+    "enableSemanticAnalysis": false
+  },
+  "parsing": {
+    "languages": ["javascript", "typescript", "python"],
+    "fileExtensions": [".md", ".js", ".ts", ".py"],
+    "maxFileSizeBytes": 104857600
+  },
+  "excluded": {
+    "patterns": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.next/**",
+      "**/coverage/**"
+    ]
+  },
+  "output": {
+    "format": "json",
+    "includeContext": true
+  }
+}
