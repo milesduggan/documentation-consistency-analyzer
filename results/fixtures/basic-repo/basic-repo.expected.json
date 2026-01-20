@@ -1,0 +1,27 @@
+{
+  "inconsistencies": [
+    {
+      "id": "cov-1768895635242-mxq7619wa",
+      "type": "undocumented-export",
+      "severity": "low",
+      "confidence": "medium",
+      "message": "Undocumented const: timeout",
+      "location": {
+        "filePath": "fixtures/basic-repo/src/index.ts",
+        "lineNumber": 1
+      },
+      "context": "Exported const \"timeout\" is not documented",
+      "suggestion": "Add documentation for timeout in README.md or docs/"
+    }
+  ],
+  "metadata": {
+    "totalFiles": 3,
+    "totalMarkdownFiles": 2,
+    "totalLinks": 1,
+    "analyzedAt": "2026-01-20T07:53:55.243Z",
+    "totalCodeFiles": 1,
+    "totalExports": 1,
+    "documentedExports": 0,
+    "coveragePercentage": 0
+  }
+}
