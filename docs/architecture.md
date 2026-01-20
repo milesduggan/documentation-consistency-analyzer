@@ -748,7 +748,7 @@ try {
 ```
 
 **Runtime Configuration:**
-- Environment variables for secrets (OPENAI_API_KEY)
+- Environment variables for secrets (GEMINI_API_KEY)
 - Command-line flags override config file
 - UI settings override command-line flags
 - Validate configuration on startup, fail fast with clear errors

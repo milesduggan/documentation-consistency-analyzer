@@ -125,3 +125,6 @@ docs/
 ## License
 
 Internal use only - not for external distribution
+
+## Security
+Never commit API keys. Use .env.local only.
