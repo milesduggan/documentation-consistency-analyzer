@@ -77,13 +77,13 @@ export interface AnalysisContext {
 
 /**
  * Assigns a confidence level to an issue based on its type and context.
- * All branches currently return 'medium' as a stub for future refinement.
+ * High = definitively an issue, Medium = likely an issue, Low = might be intentional
  */
 export function assignConfidence(issue: Inconsistency, _context: AnalysisContext): Confidence {
   switch (issue.type) {
     case 'broken-link': {
-      // Default confidence is high for broken links
-      // Downgrade to medium if target is in build output directories
+      // High confidence: target file definitively missing
+      // Medium: in build output directories (may be generated)
       const targetPath = issue.context?.toLowerCase() || '';
       if (targetPath.includes('/dist/') || targetPath.includes('/build/') || targetPath.includes('/out/')) {
         return 'medium';
@@ -92,28 +92,46 @@ export function assignConfidence(issue: Inconsistency, _context: AnalysisContext
     }
 
     case 'broken-image':
-      return 'medium';
+      // Image files should exist - high confidence
+      return 'high';
 
     case 'malformed-link':
-      return 'medium';
+      // Syntax issue, definitely wrong
+      return 'high';
 
-    case 'todo-marker':
-      return 'medium';
+    case 'todo-marker': {
+      // Medium for FIXME/XXX (urgent), low for TODO (may be intentional)
+      const msg = issue.message.toLowerCase();
+      if (msg.includes('fixme') || msg.includes('xxx') || msg.includes('hack')) {
+        return 'medium';
+      }
+      return 'low';
+    }
 
     case 'orphaned-file':
-      return 'medium';
+      // Low: might be intentional (standalone docs, entry points)
+      return 'low';
 
     case 'undocumented-export':
-      return 'medium';
+      // Low: many exports intentionally undocumented (internal APIs)
+      return 'low';
 
     case 'orphaned-doc':
+      // Medium: doc references removed code
       return 'medium';
 
-    case 'numerical-inconsistency':
+    case 'numerical-inconsistency': {
+      // Check for context qualifiers (dev/prod/test)
+      const ctx = issue.context?.toLowerCase() || '';
+      if (ctx.includes('dev') || ctx.includes('prod') || ctx.includes('test') || ctx.includes('staging')) {
+        return 'low'; // Different environments expected to differ
+      }
       return 'medium';
+    }
 
     case 'external-link':
-      return 'medium';
+      // Preserve confidence set by external-link-checker (based on error type)
+      return issue.confidence;
 
     default:
       return 'medium';

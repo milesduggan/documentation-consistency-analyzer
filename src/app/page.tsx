@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import UploadZone from '@/components/UploadZone';
 import IssuesTable from '@/components/IssuesTable';
 import AnalysisSummary from '@/components/AnalysisSummary';
@@ -15,6 +15,7 @@ import type { AnalysisProgress, AnalysisResult } from '@/lib/browser/analyzer';
 import { useTickerContext } from '@/context/TickerContext';
 import { saveAnalysis, getLatestAnalysis, formatRelativeTime, getAllProjects, getIssueStatusMap, updateIssueStatus } from '@/lib/browser/storage';
 import { computeDelta, type DeltaSummary } from '@/lib/browser/delta';
+import { DirectoryWatcher, formatChanges } from '@/lib/browser/file-watcher';
 import type { StoredAnalysis, StoredProject, StoredIssue } from '@/types';
 
 type AppState = 'dashboard' | 'history' | 'upload' | 'analyzing' | 'results';
@@ -32,6 +33,12 @@ export default function Home() {
   const [selectedProject, setSelectedProject] = useState<StoredProject | null>(null);
   const [issueStatusMap, setIssueStatusMap] = useState<Map<string, { id: string; status: StoredIssue['status'] }>>(new Map());
   const [deltaSummary, setDeltaSummary] = useState<DeltaSummary | null>(null);
+  const [watchEnabled, setWatchEnabled] = useState(false);
+  const [watchStatus, setWatchStatus] = useState<string>('');
+
+  // Refs for watch mode
+  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
+  const watcherRef = useRef<DirectoryWatcher | null>(null);
 
   const { setTickerData } = useTickerContext();
 
@@ -78,13 +85,14 @@ export default function Home() {
     }
   }, [state, results, projectName, selectedProject, setTickerData]);
 
-  const handleFolderSelected = async (
+  const handleFolderSelected = useCallback(async (
     dirHandle: FileSystemDirectoryHandle,
     options?: { checkExternalLinks?: boolean }
   ) => {
     try {
-      // Store project name from folder
+      // Store project name and handle for watch mode
       setProjectName(dirHandle.name);
+      dirHandleRef.current = dirHandle;
 
       // Check for previous analysis
       await checkPreviousAnalysis(dirHandle.name);
@@ -138,9 +146,18 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
       setState('upload');
     }
-  };
+  }, []);
 
   const handleReset = () => {
+    // Stop watcher when resetting
+    if (watcherRef.current) {
+      watcherRef.current.stop();
+      watcherRef.current = null;
+    }
+    setWatchEnabled(false);
+    setWatchStatus('');
+    dirHandleRef.current = null;
+
     setState('dashboard');
     setResults(null);
     setProgress(null);
@@ -150,6 +167,44 @@ export default function Home() {
     setLastAnalysis(null);
     setDeltaSummary(null);
   };
+
+  // Watch mode effect
+  useEffect(() => {
+    if (watchEnabled && dirHandleRef.current && state === 'results') {
+      const watcher = new DirectoryWatcher(
+        dirHandleRef.current,
+        {
+          onChanges: (changes) => {
+            setWatchStatus(`Changes detected: ${formatChanges(changes)}`);
+            // Re-analyze after a short delay
+            setTimeout(() => {
+              if (dirHandleRef.current) {
+                setWatchStatus('Re-analyzing...');
+                handleFolderSelected(dirHandleRef.current);
+              }
+            }, 500);
+          },
+          onError: (error) => {
+            console.warn('Watch error:', error);
+            setWatchStatus(`Watch error: ${error.message}`);
+          },
+        },
+        { pollInterval: 5000, enabled: true }
+      );
+      watcher.start();
+      watcherRef.current = watcher;
+      setWatchStatus('Watching for changes...');
+
+      return () => {
+        watcher.stop();
+        watcherRef.current = null;
+      };
+    } else if (!watchEnabled && watcherRef.current) {
+      watcherRef.current.stop();
+      watcherRef.current = null;
+      setWatchStatus('');
+    }
+  }, [watchEnabled, state, handleFolderSelected]);
 
   const handleSelectProject = (project: StoredProject) => {
     setSelectedProject(project);
@@ -354,10 +409,21 @@ export default function Home() {
                     <span className="stat-label">Doc Coverage</span>
                   </div>
                 )}
+                <div className="stat-item stat-item--watch">
+                  <label className="watch-toggle">
+                    <input
+                      type="checkbox"
+                      checked={watchEnabled}
+                      onChange={(e) => setWatchEnabled(e.target.checked)}
+                    />
+                    <span className="watch-label">Watch</span>
+                  </label>
+                  {watchStatus && <span className="watch-status">{watchStatus}</span>}
+                </div>
               </div>
 
               {/* Analysis Summary */}
-              <AnalysisSummary results={results} deltaSummary={deltaSummary} />
+              <AnalysisSummary results={results} deltaSummary={deltaSummary} projectName={projectName} />
 
               {/* AI Assistant - Wide Section */}
               <div className="ai-section">

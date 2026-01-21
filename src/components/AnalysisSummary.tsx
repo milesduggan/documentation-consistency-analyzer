@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import type { AnalysisResult } from '@/lib/browser/analyzer';
 import type { DeltaSummary } from '@/lib/browser/delta';
-import { downloadJSON, copySummaryToClipboard } from '@/lib/browser/export';
+import { downloadJSON, copySummaryToClipboard, downloadCICDJSON } from '@/lib/browser/export';
 
 interface AnalysisSummaryProps {
   results: AnalysisResult;
   deltaSummary?: DeltaSummary | null;
+  projectName?: string;
 }
 
-export default function AnalysisSummary({ results, deltaSummary }: AnalysisSummaryProps) {
+export default function AnalysisSummary({ results, deltaSummary, projectName = 'analysis' }: AnalysisSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [copyStatus, setCopyStatus] = useState<string>('');
 
@@ -40,6 +41,10 @@ export default function AnalysisSummary({ results, deltaSummary }: AnalysisSumma
       setCopyStatus('Failed to copy');
       setTimeout(() => setCopyStatus(''), 2000);
     }
+  };
+
+  const handleDownloadCICD = () => {
+    downloadCICDJSON(results, deltaSummary ?? null, projectName);
   };
 
   // Count by type
@@ -180,6 +185,9 @@ export default function AnalysisSummary({ results, deltaSummary }: AnalysisSumma
         <div className="export-buttons">
           <button onClick={handleDownloadJSON} className="export-btn">
             Download JSON Report
+          </button>
+          <button onClick={handleDownloadCICD} className="export-btn">
+            Download CI/CD Report
           </button>
           <button onClick={handleCopySummary} className="export-btn secondary">
             Copy Summary
