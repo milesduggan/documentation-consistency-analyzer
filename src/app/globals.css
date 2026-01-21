@@ -227,24 +227,10 @@ select:focus {
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
+  top: var(--led-header-height);
   left: 0;
-  height: 100vh;
+  height: calc(100vh - var(--led-header-height));
   z-index: 100;
-}
-
-.sidebar-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.sidebar-logo {
-  font-size: 1.125rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--color-primary) 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .sidebar-nav {
@@ -350,6 +336,17 @@ select:focus {
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.stat-item--history {
+  border-right: 1px solid var(--color-border);
+  padding-right: 1.5rem;
+  margin-right: 0.5rem;
+}
+
+.stat-value--small {
+  font-size: 1rem;
+  color: var(--color-primary);
 }
 
 /* ========== Analysis Summary ========== */
@@ -897,6 +894,127 @@ select:focus {
 }
 
 /* ========== Upload Zone (from component) ========== */
+.upload-zone-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.upload-zone-unsupported {
+  padding: 2rem;
+  text-align: center;
+  background: var(--color-medium-bg);
+  border: 1px solid var(--color-medium);
+  border-radius: 8px;
+}
+
+.upload-zone-unsupported h3 {
+  color: var(--color-medium);
+  margin-bottom: 0.5rem;
+}
+
+.upload-zone-unsupported p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.upload-zone-unsupported .browser-info {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.upload-zone-container {
+  max-width: 800px;
+  margin: 2rem auto;
+}
+
+.upload-zone-dropzone {
+  padding: 3rem 2rem;
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  text-align: center;
+  background: var(--color-bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-zone-dropzone.active {
+  border: 3px dashed var(--color-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.upload-zone-dropzone h2 {
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.upload-zone-dropzone p {
+  color: var(--color-text-muted);
+  margin-bottom: 2rem;
+}
+
+.upload-zone-dropzone button {
+  margin-bottom: 1.5rem;
+}
+
+.upload-zone-divider {
+  margin: 1.5rem 0;
+  color: var(--color-text-muted);
+}
+
+.upload-zone-path-section {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.upload-zone-path-section p {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.upload-zone-path-section .path-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.5rem;
+}
+
+.upload-zone-path-btn {
+  width: 100%;
+  background: var(--color-bg-tertiary);
+}
+
+.upload-zone-error {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--color-high-bg);
+  border: 1px solid var(--color-high);
+  border-radius: 4px;
+  color: var(--color-high);
+}
+
+.upload-zone-instructions {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.upload-zone-instructions p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.upload-zone-instructions ul {
+  margin: 0.5rem 0 0 1.5rem;
+  color: var(--color-text-muted);
+}
+
+.upload-zone-instructions li {
+  margin: 0.25rem 0;
+}
+
 .dropzone {
   border: 2px dashed var(--color-border);
   border-radius: 12px;
@@ -963,19 +1081,6 @@ select:focus {
     min-width: 60px;
   }
 
-  .sidebar-header {
-    padding: 1rem;
-  }
-
-  .sidebar-logo {
-    font-size: 0;
-  }
-
-  .sidebar-logo::after {
-    content: 'DCA';
-    font-size: 0.75rem;
-  }
-
   .sidebar-tab {
     padding: 0.875rem;
     justify-content: center;
@@ -1038,4 +1143,155 @@ select:focus {
   .ai-chat-key-input {
     flex-direction: column;
   }
+}
+
+/* === LED Stock Ticker === */
+:root {
+  --led-header-height: 4rem;
+  --led-header-height-multi: 9rem;
+}
+
+.stats-ticker {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  align-items: stretch;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+  font-family: 'Courier New', 'Lucida Console', Monaco, monospace;
+  min-height: var(--led-header-height);
+}
+
+/* Single row full-width ticker (idle/project modes) */
+.stats-ticker--single {
+  min-height: var(--led-header-height);
+}
+
+.stats-ticker--single .stats-ticker__rows {
+  width: 100%;
+}
+
+.stats-ticker--single .stats-ticker__content {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.6), 0 0 16px rgba(255, 176, 0, 0.3);
+}
+
+/* Full-width results mode (no logo) */
+.stats-ticker--full .stats-ticker__rows {
+  width: 100%;
+}
+
+/* Ticker rows container */
+.stats-ticker__rows {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Single row layout */
+.stats-ticker__row {
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #111;
+}
+
+.stats-ticker__row:last-child {
+  border-bottom: none;
+}
+
+.stats-ticker__content {
+  display: inline-block;
+  padding-left: 100%;
+  animation: ticker-scroll 15s linear infinite;
+  color: #ffb000;
+  text-shadow: 0 0 4px rgba(255, 176, 0, 0.4);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Multi-row layout (results mode) */
+.stats-ticker--multi {
+  min-height: var(--led-header-height-multi);
+}
+
+.stats-ticker--multi .stats-ticker__rows {
+  justify-content: flex-start;
+  padding: 0.25rem 0;
+}
+
+.stats-ticker--multi .stats-ticker__row {
+  padding: 0.35rem 0;
+}
+
+.stats-ticker--multi .stats-ticker__content {
+  font-size: 0.875rem;
+  animation-duration: 12s;
+}
+
+/* Stagger animation for visual interest */
+.stats-ticker--multi .stats-ticker__row:nth-child(2) .stats-ticker__content {
+  animation-delay: -2.4s;
+}
+
+.stats-ticker--multi .stats-ticker__row:nth-child(3) .stats-ticker__content {
+  animation-delay: -4.8s;
+}
+
+.stats-ticker--multi .stats-ticker__row:nth-child(4) .stats-ticker__content {
+  animation-delay: -7.2s;
+}
+
+.stats-ticker--multi .stats-ticker__row:nth-child(5) .stats-ticker__content {
+  animation-delay: -9.6s;
+}
+
+/* Pause all rows on hover */
+.stats-ticker:hover .stats-ticker__content {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-200%);
+  }
+}
+
+/* Adjust sidebar and main content when multi-row ticker is present */
+body:has(.stats-ticker--multi) .sidebar {
+  top: var(--led-header-height-multi);
+  height: calc(100vh - var(--led-header-height-multi));
+}
+
+body:has(.stats-ticker--multi) .main-content {
+  padding-top: 1rem;
+}
+
+/* === Turbo Snail Logo === */
+.turbo-snail {
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 0 12px rgba(255, 176, 0, 0.6)) drop-shadow(0 0 24px rgba(255, 176, 0, 0.3));
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* === Welcome Text Styling === */
+.welcome-text {
+  font-size: 1.5rem;
+  color: #ffb000;
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.6), 0 0 16px rgba(255, 176, 0, 0.3);
+  font-family: 'Courier New', 'Lucida Console', Monaco, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
 }

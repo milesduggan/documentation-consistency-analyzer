@@ -51,7 +51,7 @@ function getExplanation(type: string, severity: string): string {
   return severityExplanations[type]?.[severity] || 'This issue should be reviewed';
 }
 
-export default function IssuesTable({ inconsistencies, onReset }: IssuesTableProps) {
+export default function IssuesTable({ inconsistencies, onReset: _onReset }: IssuesTableProps) {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
 

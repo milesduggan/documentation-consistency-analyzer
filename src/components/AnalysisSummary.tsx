@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react';
-import type { Inconsistency } from '@/types';
 import type { AnalysisResult } from '@/lib/browser/analyzer';
 import { downloadJSON, copySummaryToClipboard } from '@/lib/browser/export';
 
@@ -13,7 +12,7 @@ export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [copyStatus, setCopyStatus] = useState<string>('');
 
-  const { metadata, inconsistencies } = results;
+  const { inconsistencies } = results;
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -35,17 +34,11 @@ export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
       await copySummaryToClipboard(results);
       setCopyStatus('Copied!');
       setTimeout(() => setCopyStatus(''), 2000);
-    } catch (err) {
+    } catch {
       setCopyStatus('Failed to copy');
       setTimeout(() => setCopyStatus(''), 2000);
     }
   };
-
-  // Count by severity
-  const severityCounts = inconsistencies.reduce((acc, inc) => {
-    acc[inc.severity] = (acc[inc.severity] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
 
   // Count by type
   const typeCounts = inconsistencies.reduce((acc, inc) => {

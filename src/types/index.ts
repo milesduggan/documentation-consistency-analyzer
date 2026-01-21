@@ -26,9 +26,6 @@ export interface Inconsistency {
     | 'malformed-link'
     | 'todo-marker'
     | 'orphaned-file'
-    | 'duplicate-content'
-    | 'semantic-mismatch'
-    | 'outdated-reference'
     | 'undocumented-export'    // Code export without documentation
     | 'orphaned-doc'           // Documentation referencing non-existent code
     | 'numerical-inconsistency'; // Same concept with different numerical values
@@ -78,7 +75,7 @@ export interface AnalysisContext {
  * Assigns a confidence level to an issue based on its type and context.
  * All branches currently return 'medium' as a stub for future refinement.
  */
-export function assignConfidence(issue: Inconsistency, context: AnalysisContext): Confidence {
+export function assignConfidence(issue: Inconsistency, _context: AnalysisContext): Confidence {
   switch (issue.type) {
     case 'broken-link': {
       // Default confidence is high for broken links
@@ -102,15 +99,6 @@ export function assignConfidence(issue: Inconsistency, context: AnalysisContext)
     case 'orphaned-file':
       return 'medium';
 
-    case 'duplicate-content':
-      return 'medium';
-
-    case 'semantic-mismatch':
-      return 'medium';
-
-    case 'outdated-reference':
-      return 'medium';
-
     case 'undocumented-export':
       return 'medium';
 
@@ -123,4 +111,67 @@ export function assignConfidence(issue: Inconsistency, context: AnalysisContext)
     default:
       return 'medium';
   }
+}
+
+// ============ Storage Types ============
+
+/**
+ * A project stored in IndexedDB
+ */
+export interface StoredProject {
+  id: string;
+  name: string;
+  path?: string;
+  createdAt: string;
+  lastAnalyzedAt: string;
+  analysisCount: number;
+}
+
+/**
+ * An analysis run stored in IndexedDB
+ */
+export interface StoredAnalysis {
+  id: string;
+  projectId: string;
+  timestamp: string;
+  metadata: AnalysisMetadata;
+  issueCount: number;
+  issuesByType: Record<string, number>;
+  healthScore: number;
+  runNumber: number;
+}
+
+/**
+ * Metadata for a stored analysis
+ */
+export interface AnalysisMetadata {
+  totalFiles: number;
+  totalMarkdownFiles: number;
+  totalLinks: number;
+  totalCodeFiles?: number;
+  totalExports?: number;
+  documentedExports?: number;
+  coveragePercentage?: number;
+}
+
+/**
+ * An issue stored in IndexedDB with tracking info
+ */
+export interface StoredIssue {
+  id: string;
+  analysisId: string;
+  projectId: string;
+  fingerprint: string;
+  type: string;
+  severity: string;
+  message: string;
+  location: {
+    filePath: string;
+    lineNumber?: number;
+    columnNumber?: number;
+  };
+  context?: string;
+  suggestion?: string;
+  firstSeenAt: string;
+  status: 'open' | 'resolved' | 'ignored';
 }

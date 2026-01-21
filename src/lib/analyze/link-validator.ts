@@ -10,7 +10,7 @@ import { Inconsistency } from '@/types';
  */
 export async function validateLinks(
   parsedMarkdown: ParsedMarkdown[],
-  projectRoot: string
+  _projectRoot: string
 ): Promise<Inconsistency[]> {
   const inconsistencies: Inconsistency[] = [];
 

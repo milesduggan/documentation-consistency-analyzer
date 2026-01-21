@@ -1,26 +1,84 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UploadZone from '@/components/UploadZone';
 import IssuesTable from '@/components/IssuesTable';
 import AnalysisSummary from '@/components/AnalysisSummary';
 import AIChat from '@/components/AIChat';
 import Sidebar from '@/components/Sidebar';
+import TurboSnail from '@/components/TurboSnail';
+import Dashboard from '@/components/Dashboard';
 import { readDirectory } from '@/lib/browser/file-reader';
-import { analyzeProject, AnalysisProgress, AnalysisResult } from '@/lib/browser/analyzer';
+import { analyzeProject } from '@/lib/browser/analyzer';
+import type { AnalysisProgress, AnalysisResult } from '@/lib/browser/analyzer';
+import { useTickerContext } from '@/context/TickerContext';
+import { saveAnalysis, getLatestAnalysis, formatRelativeTime, getAllProjects } from '@/lib/browser/storage';
+import type { StoredAnalysis, StoredProject } from '@/types';
 
-type AppState = 'upload' | 'analyzing' | 'results';
+type AppState = 'dashboard' | 'upload' | 'analyzing' | 'results';
 type ResultsView = 'overview' | 'results';
 
 export default function Home() {
-  const [state, setState] = useState<AppState>('upload');
+  const [state, setState] = useState<AppState>('dashboard');
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [progress, setProgress] = useState<AnalysisProgress | null>(null);
   const [results, setResults] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string>('');
   const [activeView, setActiveView] = useState<ResultsView>('overview');
+  const [projectName, setProjectName] = useState<string>('');
+  const [lastAnalysis, setLastAnalysis] = useState<StoredAnalysis | null>(null);
+
+  const { setTickerData } = useTickerContext();
+
+  // Check for existing projects on mount
+  useEffect(() => {
+    const checkExistingProjects = async () => {
+      try {
+        const projects = await getAllProjects();
+        if (projects.length === 0) {
+          setState('upload');
+        }
+      } catch (err) {
+        console.warn('Failed to check projects:', err);
+        setState('upload');
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+    checkExistingProjects();
+  }, []);
+
+  // Update ticker when state changes
+  useEffect(() => {
+    if (state === 'dashboard') {
+      setTickerData({ mode: 'dashboard' });
+    } else if (state === 'upload') {
+      setTickerData({ mode: 'idle' });
+    } else if (state === 'analyzing' && projectName) {
+      setTickerData({ mode: 'project', projectName });
+    } else if (state === 'results' && results) {
+      setTickerData({
+        mode: 'results',
+        projectName,
+        metrics: {
+          totalFiles: results.metadata.totalFiles,
+          markdownFiles: results.metadata.totalMarkdownFiles,
+          linksChecked: results.metadata.totalLinks,
+          issuesFound: results.inconsistencies.length,
+          coverage: results.metadata.coveragePercentage ?? 0,
+        },
+      });
+    }
+  }, [state, results, projectName, setTickerData]);
 
   const handleFolderSelected = async (dirHandle: FileSystemDirectoryHandle) => {
     try {
+      // Store project name from folder
+      setProjectName(dirHandle.name);
+
+      // Check for previous analysis
+      await checkPreviousAnalysis(dirHandle.name);
+
       setState('analyzing');
       setError('');
       setProgress({
@@ -38,7 +96,14 @@ export default function Home() {
         setProgress(prog);
       });
 
-      // Step 3: Show results
+      // Step 3: Save to IndexedDB
+      try {
+        await saveAnalysis(dirHandle.name, analysisResults);
+      } catch (saveErr) {
+        console.warn('Failed to save analysis to IndexedDB:', saveErr);
+      }
+
+      // Step 4: Show results
       setResults(analysisResults);
       setState('results');
       setActiveView('overview');
@@ -54,6 +119,20 @@ export default function Home() {
     setProgress(null);
     setError('');
     setActiveView('overview');
+    setProjectName('');
+    setLastAnalysis(null);
+  };
+
+  // Check for previous analysis when returning to a project
+  const checkPreviousAnalysis = async (name: string) => {
+    try {
+      const previous = await getLatestAnalysis(name);
+      if (previous) {
+        setLastAnalysis(previous);
+      }
+    } catch (err) {
+      console.warn('Failed to load previous analysis:', err);
+    }
   };
 
   // Upload State
@@ -61,8 +140,8 @@ export default function Home() {
     return (
       <div className="upload-page">
         <header className="upload-header">
-          <h1>The Turbo DCA 3000</h1>
-          <p>Analyze your project for broken links and documentation issues</p>
+          <TurboSnail size={80} />
+          <p className="welcome-text">Welcome to The Turbo DCA 3000, now drop those files</p>
         </header>
 
         <UploadZone onFolderSelected={handleFolderSelected} />
@@ -115,6 +194,16 @@ export default function Home() {
             <div className="overview-page">
               {/* Wide stats banner at top */}
               <div className="stats-banner">
+                {lastAnalysis && (
+                  <div className="stat-item stat-item--history">
+                    <span className="stat-value stat-value--small">
+                      {lastAnalysis.runNumber > 1 ? `Run #${lastAnalysis.runNumber}` : 'First Run'}
+                    </span>
+                    <span className="stat-label">
+                      Last: {formatRelativeTime(lastAnalysis.timestamp)}
+                    </span>
+                  </div>
+                )}
                 <div className="stat-item">
                   <span className="stat-value">{results.metadata.totalFiles}</span>
                   <span className="stat-label">Total Files</span>

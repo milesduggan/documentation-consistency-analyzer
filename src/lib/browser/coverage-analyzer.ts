@@ -282,10 +282,3 @@ export function coverageToInconsistencies(
 
   return inconsistencies;
 }
-
-/**
- * Generate ID helper
- */
-function generateId(): string {
-  return `cov-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-}

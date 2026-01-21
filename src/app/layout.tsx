@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { Providers } from '@/components/Providers'
+import StatsTicker from '@/components/StatsTicker'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Documentation Consistency Analyzer',
-  description: 'Analyze documentation for broken links and inconsistencies',
+  description: 'Analyze documentation quality and consistency',
 }
 
 export default function RootLayout({
@@ -13,7 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Providers>
+          <StatsTicker />
+          {children}
+        </Providers>
+      </body>
     </html>
   )
 }
