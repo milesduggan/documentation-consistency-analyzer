@@ -10,6 +10,7 @@ interface IssuesTableProps {
   onReset: () => void;
   issueStatusMap?: Map<string, { id: string; status: StoredIssue['status'] }>;
   onStatusChange?: (issueId: string, fingerprint: string, status: StoredIssue['status']) => void;
+  onBulkStatusChange?: (updates: Array<{ issueId: string; fingerprint: string; status: StoredIssue['status'] }>) => void;
   deltaSummary?: DeltaSummary | null;
 }
 
@@ -59,6 +60,11 @@ const severityExplanations: Record<string, Record<string, string>> = {
     low: 'Values differ but have context qualifiers (dev vs prod)',
     medium: 'Same concept has different values across documentation',
   },
+  'external-link': {
+    high: 'External URL is broken or unreachable',
+    medium: 'External URL timed out during check',
+    low: 'External URL could not be verified (CORS)',
+  },
 };
 
 function getExplanation(type: string, severity: string): string {
@@ -70,6 +76,7 @@ export default function IssuesTable({
   onReset: _onReset,
   issueStatusMap,
   onStatusChange,
+  onBulkStatusChange,
   deltaSummary
 }: IssuesTableProps) {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
@@ -77,6 +84,7 @@ export default function IssuesTable({
   const [filterDelta, setFilterDelta] = useState<string>('all');
   const [showResolved, setShowResolved] = useState<boolean>(false);
   const [fingerprints, setFingerprints] = useState<Map<string, string>>(new Map());
+  const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
 
   // Generate fingerprints for all issues on mount
   useEffect(() => {
@@ -162,6 +170,52 @@ export default function IssuesTable({
   // Get unique types
   const types = [...new Set(inconsistencies.map(inc => inc.type))];
 
+  // Selection helpers
+  const toggleSelection = (issueId: string) => {
+    setSelectedIssues(prev => {
+      const next = new Set(prev);
+      if (next.has(issueId)) {
+        next.delete(issueId);
+      } else {
+        next.add(issueId);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const allIds = new Set(filteredIssues.map(i => i.id));
+    setSelectedIssues(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedIssues(new Set());
+  };
+
+  // Bulk action handlers
+  const handleBulkAction = (status: StoredIssue['status']) => {
+    if (!onBulkStatusChange) return;
+
+    const updates: Array<{ issueId: string; fingerprint: string; status: StoredIssue['status'] }> = [];
+
+    for (const issueId of selectedIssues) {
+      const fp = fingerprints.get(issueId);
+      const storedId = getStoredId(issueId);
+      if (fp && storedId) {
+        updates.push({ issueId: storedId, fingerprint: fp, status });
+      }
+    }
+
+    if (updates.length > 0) {
+      onBulkStatusChange(updates);
+      clearSelection();
+    }
+  };
+
+  // Count selected that can be actioned
+  const selectedCount = selectedIssues.size;
+  const canBulkAction = selectedCount > 0 && onBulkStatusChange;
+
   if (inconsistencies.length === 0) {
     return (
       <div className="no-issues">
@@ -184,6 +238,33 @@ export default function IssuesTable({
           <span className="severity-badge low">{severityCounts.low || 0} Low</span>
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {canBulkAction && (
+        <div className="bulk-action-bar">
+          <span className="bulk-selected-count">{selectedCount} selected</span>
+          <div className="bulk-actions">
+            <button
+              className="bulk-action-btn bulk-action-btn--resolve"
+              onClick={() => handleBulkAction('resolved')}
+            >
+              Resolve All
+            </button>
+            <button
+              className="bulk-action-btn bulk-action-btn--ignore"
+              onClick={() => handleBulkAction('ignored')}
+            >
+              Ignore All
+            </button>
+            <button
+              className="bulk-action-btn bulk-action-btn--clear"
+              onClick={clearSelection}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter controls */}
       <div className="issues-controls">
@@ -248,6 +329,17 @@ export default function IssuesTable({
             </label>
           </div>
         )}
+
+        {onBulkStatusChange && filteredIssues.length > 0 && (
+          <div className="filter-group filter-group--select">
+            <button
+              className="select-all-btn"
+              onClick={selectedCount === filteredIssues.length ? clearSelection : selectAll}
+            >
+              {selectedCount === filteredIssues.length ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Issues list */}
@@ -260,12 +352,23 @@ export default function IssuesTable({
           const isIgnored = status === 'ignored';
           const deltaClass = getDeltaClassification(issue.id);
 
+          const isSelected = selectedIssues.has(issue.id);
+
           return (
             <div
               key={issue.id}
-              className={`issue-card issue-card-${issue.severity}${isResolved ? ' issue-card--resolved' : ''}${isIgnored ? ' issue-card--ignored' : ''}`}
+              className={`issue-card issue-card-${issue.severity}${isResolved ? ' issue-card--resolved' : ''}${isIgnored ? ' issue-card--ignored' : ''}${isSelected ? ' issue-card--selected' : ''}`}
             >
               <div className="issue-header">
+                {onBulkStatusChange && (
+                  <label className="issue-checkbox" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelection(issue.id)}
+                    />
+                  </label>
+                )}
                 <span className={`issue-severity severity-${issue.severity}`}>
                   {severityIcons[issue.severity]}
                 </span>

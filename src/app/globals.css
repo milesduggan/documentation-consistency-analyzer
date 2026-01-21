@@ -993,6 +993,107 @@ select:focus {
   border-radius: 8px;
 }
 
+/* ========== Bulk Actions ========== */
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--color-primary);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.bulk-selected-count {
+  font-weight: 600;
+  color: #000;
+  font-size: 0.875rem;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bulk-action-btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bulk-action-btn--resolve {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.bulk-action-btn--resolve:hover {
+  background: #2ea043;
+}
+
+.bulk-action-btn--ignore {
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.bulk-action-btn--ignore:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bulk-action-btn--clear {
+  background: transparent;
+  color: #000;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.bulk-action-btn--clear:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Issue checkbox */
+.issue-checkbox {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+}
+
+.issue-checkbox input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.issue-card--selected {
+  border-color: var(--color-primary);
+  background: rgba(88, 166, 255, 0.05);
+}
+
+/* Select all button */
+.filter-group--select {
+  margin-left: auto;
+}
+
+.select-all-btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.select-all-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+}
+
 /* ========== Upload Zone (from component) ========== */
 .upload-zone-loading {
   padding: 2rem;
@@ -1091,6 +1192,40 @@ select:focus {
   border: 1px solid var(--color-high);
   border-radius: 4px;
   color: var(--color-high);
+}
+
+/* Upload zone options */
+.upload-zone-options {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--color-bg-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.option-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.option-checkbox input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.option-label {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.option-hint {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
 }
 
 .upload-zone-instructions {

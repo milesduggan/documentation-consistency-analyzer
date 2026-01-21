@@ -78,7 +78,10 @@ export default function Home() {
     }
   }, [state, results, projectName, selectedProject, setTickerData]);
 
-  const handleFolderSelected = async (dirHandle: FileSystemDirectoryHandle) => {
+  const handleFolderSelected = async (
+    dirHandle: FileSystemDirectoryHandle,
+    options?: { checkExternalLinks?: boolean }
+  ) => {
     try {
       // Store project name from folder
       setProjectName(dirHandle.name);
@@ -101,7 +104,7 @@ export default function Home() {
       // Step 2: Analyze project
       const analysisResults = await analyzeProject(files, (prog) => {
         setProgress(prog);
-      });
+      }, { checkExternalLinks: options?.checkExternalLinks });
 
       // Step 3: Save to IndexedDB
       try {
@@ -202,6 +205,23 @@ export default function Home() {
       });
     } catch (err) {
       console.error('Failed to update issue status:', err);
+    }
+  };
+
+  const handleBulkStatusChange = async (updates: Array<{ issueId: string; fingerprint: string; status: StoredIssue['status'] }>) => {
+    try {
+      // Update all in parallel
+      await Promise.all(updates.map(u => updateIssueStatus(u.issueId, u.status)));
+      // Update local state
+      setIssueStatusMap((prev) => {
+        const updated = new Map(prev);
+        for (const u of updates) {
+          updated.set(u.fingerprint, { id: u.issueId, status: u.status });
+        }
+        return updated;
+      });
+    } catch (err) {
+      console.error('Failed to bulk update issue status:', err);
     }
   };
 
@@ -351,6 +371,7 @@ export default function Home() {
                 onReset={handleReset}
                 issueStatusMap={issueStatusMap}
                 onStatusChange={handleStatusChange}
+                onBulkStatusChange={handleBulkStatusChange}
                 deltaSummary={deltaSummary}
               />
             </div>

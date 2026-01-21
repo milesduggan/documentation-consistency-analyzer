@@ -17,7 +17,16 @@ import {
 } from './numerical-analyzer';
 import { parseMarkdownContent } from './markdown-parser';
 import { readFilesWithProgress } from './streaming-reader';
+import {
+  extractExternalLinks,
+  checkExternalLinks,
+  externalLinksToInconsistencies,
+} from './external-link-checker';
 import type { Inconsistency } from '@/types';
+
+export interface AnalysisOptions {
+  checkExternalLinks?: boolean;
+}
 
 export interface AnalysisProgress {
   step: string;
@@ -36,6 +45,7 @@ export interface AnalysisResult {
     totalFiles: number;
     totalMarkdownFiles: number;
     totalLinks: number;
+    externalLinksChecked?: number;
     analyzedAt: string;
     // Coverage analysis fields
     totalCodeFiles?: number;
@@ -448,7 +458,8 @@ async function validateLinks(
  */
 export async function analyzeProject(
   files: BrowserFile[],
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: AnalysisOptions
 ): Promise<AnalysisResult> {
   const markdownFiles = files.filter(f => f.name.endsWith('.md'));
   const codeFiles = files.filter(f =>
@@ -557,6 +568,34 @@ export async function analyzeProject(
   inconsistencies.push(...numericalToInconsistencies(numInconsistencies, generateId));
 
   currentStep++;
+
+  // Step 6: External link checking (optional)
+  let externalLinksChecked = 0;
+  if (options?.checkExternalLinks) {
+    const externalLinks = extractExternalLinks(parsedMarkdown);
+
+    if (externalLinks.length > 0) {
+      onProgress?.({
+        step: 'Checking external links',
+        current: 0,
+        total: externalLinks.length,
+        percentage: Math.round((currentStep / (totalSteps + 1)) * 100),
+      });
+
+      const linkResults = await checkExternalLinks(externalLinks, (progress) => {
+        onProgress?.({
+          step: `Checking external links: ${progress.currentUrl.substring(0, 40)}...`,
+          current: progress.checked,
+          total: progress.total,
+          percentage: Math.round(((currentStep + progress.checked / progress.total) / (totalSteps + 1)) * 100),
+        });
+      });
+
+      inconsistencies.push(...externalLinksToInconsistencies(externalLinks, linkResults));
+      externalLinksChecked = externalLinks.length;
+    }
+  }
+
   onProgress?.({
     step: 'Analysis complete',
     current: totalSteps,
@@ -573,6 +612,7 @@ export async function analyzeProject(
       totalFiles: files.length,
       totalMarkdownFiles: markdownFiles.length,
       totalLinks,
+      externalLinksChecked: externalLinksChecked > 0 ? externalLinksChecked : undefined,
       analyzedAt: new Date().toISOString(),
       // Coverage metadata
       totalCodeFiles: codeFiles.length,
@@ -589,7 +629,8 @@ export async function analyzeProject(
  */
 export async function analyzeProjectWithWorkers(
   files: BrowserFile[],
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: AnalysisOptions
 ): Promise<AnalysisResult> {
   const markdownFiles = files.filter(f => f.name.endsWith('.md'));
   const codeFiles = files.filter(f =>
@@ -728,6 +769,33 @@ export async function analyzeProjectWithWorkers(
   const numInconsistencies = detectNumericalInconsistencies(valueClusters);
   inconsistencies.push(...numericalToInconsistencies(numInconsistencies, generateId));
 
+  // Step 6: External link checking (optional)
+  let externalLinksChecked = 0;
+  if (options?.checkExternalLinks) {
+    const externalLinks = extractExternalLinks(parsedMarkdown);
+
+    if (externalLinks.length > 0) {
+      onProgress?.({
+        step: 'Checking external links',
+        current: 0,
+        total: externalLinks.length,
+        percentage: 92,
+      });
+
+      const linkResults = await checkExternalLinks(externalLinks, (progress) => {
+        onProgress?.({
+          step: `Checking external links: ${progress.currentUrl.substring(0, 40)}...`,
+          current: progress.checked,
+          total: progress.total,
+          percentage: 92 + Math.round((progress.checked / progress.total) * 7),
+        });
+      });
+
+      inconsistencies.push(...externalLinksToInconsistencies(externalLinks, linkResults));
+      externalLinksChecked = externalLinks.length;
+    }
+  }
+
   onProgress?.({
     step: 'Analysis complete',
     current: totalSteps,
@@ -744,6 +812,7 @@ export async function analyzeProjectWithWorkers(
       totalFiles: files.length,
       totalMarkdownFiles: markdownFiles.length,
       totalLinks,
+      externalLinksChecked: externalLinksChecked > 0 ? externalLinksChecked : undefined,
       analyzedAt: new Date().toISOString(),
       totalCodeFiles: codeFiles.length,
       totalExports: coverageResult.totalExports,
@@ -760,15 +829,16 @@ export async function analyzeProjectWithWorkers(
  */
 export async function analyzeProjectSmart(
   files: BrowserFile[],
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: AnalysisOptions
 ): Promise<AnalysisResult> {
   const LARGE_PROJECT_THRESHOLD = 50;
 
   // For large projects, use the optimized worker-based approach
   if (files.length >= LARGE_PROJECT_THRESHOLD) {
-    return analyzeProjectWithWorkers(files, onProgress);
+    return analyzeProjectWithWorkers(files, onProgress, options);
   }
 
   // For small projects, use the original approach (less overhead)
-  return analyzeProject(files, onProgress);
+  return analyzeProject(files, onProgress, options);
 }

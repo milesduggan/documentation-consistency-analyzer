@@ -31,7 +31,8 @@ export interface Inconsistency {
     | 'orphaned-file'
     | 'undocumented-export'    // Code export without documentation
     | 'orphaned-doc'           // Documentation referencing non-existent code
-    | 'numerical-inconsistency'; // Same concept with different numerical values
+    | 'numerical-inconsistency' // Same concept with different numerical values
+    | 'external-link';          // External URL check failed
   severity: 'low' | 'medium' | 'high';
   confidence: Confidence;
   message: string;
@@ -109,6 +110,9 @@ export function assignConfidence(issue: Inconsistency, _context: AnalysisContext
       return 'medium';
 
     case 'numerical-inconsistency':
+      return 'medium';
+
+    case 'external-link':
       return 'medium';
 
     default:

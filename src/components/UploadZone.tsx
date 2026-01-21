@@ -3,8 +3,12 @@
 import { useState, useEffect } from 'react';
 import { getBrowserCompatibility } from '@/lib/browser/file-reader';
 
+interface AnalysisOptions {
+  checkExternalLinks: boolean;
+}
+
 interface UploadZoneProps {
-  onFolderSelected: (dirHandle: FileSystemDirectoryHandle) => void;
+  onFolderSelected: (dirHandle: FileSystemDirectoryHandle, options: AnalysisOptions) => void;
 }
 
 interface BrowserCompatibility {
@@ -17,6 +21,7 @@ export default function UploadZone({ onFolderSelected }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string>('');
   const [compatibility, setCompatibility] = useState<BrowserCompatibility | null>(null);
+  const [checkExternalLinks, setCheckExternalLinks] = useState(false);
 
   // Check browser compatibility on client side only
   useEffect(() => {
@@ -50,7 +55,7 @@ export default function UploadZone({ onFolderSelected }: UploadZoneProps) {
       setError('');
       // @ts-expect-error - File System Access API types not yet in lib.dom.d.ts
       const dirHandle = await window.showDirectoryPicker();
-      onFolderSelected(dirHandle);
+      onFolderSelected(dirHandle, { checkExternalLinks });
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
         setError(`Error selecting folder: ${err.message}`);
@@ -83,7 +88,7 @@ export default function UploadZone({ onFolderSelected }: UploadZoneProps) {
           const handle = await item.getAsFileSystemHandle();
 
           if (handle.kind === 'directory') {
-            onFolderSelected(handle as FileSystemDirectoryHandle);
+            onFolderSelected(handle as FileSystemDirectoryHandle, { checkExternalLinks });
             return;
           }
         }
@@ -133,6 +138,19 @@ export default function UploadZone({ onFolderSelected }: UploadZoneProps) {
           {error}
         </div>
       )}
+
+      {/* Analysis options */}
+      <div className="upload-zone-options">
+        <label className="option-checkbox">
+          <input
+            type="checkbox"
+            checked={checkExternalLinks}
+            onChange={(e) => setCheckExternalLinks(e.target.checked)}
+          />
+          <span className="option-label">Check external links</span>
+          <span className="option-hint">(Makes network requests, slower)</span>
+        </label>
+      </div>
 
       {/* Instructions */}
       <div className="upload-zone-instructions">
