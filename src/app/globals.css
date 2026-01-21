@@ -1483,10 +1483,22 @@ body:has(.stats-ticker--multi) .main-content {
   word-break: break-word;
 }
 
+.project-card-health-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .project-card-health {
   font-size: 1.25rem;
   font-weight: 700;
   font-family: 'Courier New', monospace;
+}
+
+/* Sparkline */
+.sparkline {
+  opacity: 0.8;
+  flex-shrink: 0;
 }
 
 .project-card-meta {
@@ -1497,13 +1509,37 @@ body:has(.stats-ticker--multi) .main-content {
   margin-bottom: 0.5rem;
 }
 
-.project-card-stats {
+.project-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 0.875rem;
-  color: var(--color-text-muted);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .project-card-issues {
   color: var(--color-medium);
+}
+
+.btn-reanalyze {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-primary);
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-reanalyze:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #000;
 }
 
 /* Button variants */
@@ -1798,4 +1834,142 @@ body:has(.stats-ticker--multi) .main-content {
   font-size: 0.8125rem;
   font-style: italic;
   margin-top: 0.5rem;
+}
+
+/* ========== Delta Summary ========== */
+.delta-summary {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.delta-summary h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.delta-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.delta-alert--regression {
+  background: var(--color-high-bg);
+  border-left: 4px solid var(--color-high);
+  color: var(--color-high);
+}
+
+.delta-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.delta-stat {
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.delta-stat--new {
+  background: var(--color-high-bg);
+  color: var(--color-high);
+}
+
+.delta-stat--resolved {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.delta-stat--persisting {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+
+.delta-stat--reintroduced {
+  background: var(--color-medium-bg);
+  color: var(--color-medium);
+}
+
+.delta-stat--ignored {
+  background: rgba(139, 148, 158, 0.15);
+  color: var(--color-text-muted);
+}
+
+.health-delta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-tertiary);
+  border-radius: 6px;
+}
+
+.health-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.health-previous {
+  color: var(--color-text-muted);
+}
+
+.health-arrow {
+  color: var(--color-text-muted);
+}
+
+.health-current {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.health-change {
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.health-change.positive {
+  color: var(--color-success);
+}
+
+.health-change.negative {
+  color: var(--color-high);
+}
+
+/* ========== Issue Delta Badges ========== */
+.issue-delta-badge {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.issue-delta-badge--new {
+  background: var(--color-high-bg);
+  color: var(--color-high);
+}
+
+.issue-delta-badge--reintroduced {
+  background: var(--color-medium-bg);
+  color: var(--color-medium);
+}
+
+.issue-delta-badge--ignored {
+  background: rgba(139, 148, 158, 0.15);
+  color: var(--color-text-muted);
 }

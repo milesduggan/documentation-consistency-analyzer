@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import type { Inconsistency, StoredIssue } from '@/types';
+import type { Inconsistency, StoredIssue, DeltaClassification } from '@/types';
+import type { DeltaSummary } from '@/lib/browser/delta';
 import { generateIssueFingerprint } from '@/lib/browser/storage';
 
 interface IssuesTableProps {
@@ -9,7 +10,17 @@ interface IssuesTableProps {
   onReset: () => void;
   issueStatusMap?: Map<string, { id: string; status: StoredIssue['status'] }>;
   onStatusChange?: (issueId: string, fingerprint: string, status: StoredIssue['status']) => void;
+  deltaSummary?: DeltaSummary | null;
 }
+
+// Delta classification labels and colors
+const deltaLabels: Record<DeltaClassification, string> = {
+  new: 'NEW',
+  persisting: 'PERSISTING',
+  resolved: 'RESOLVED',
+  reintroduced: 'REINTRODUCED',
+  ignored: 'IGNORED',
+};
 
 // Severity icons
 const severityIcons: Record<string, string> = {
@@ -58,10 +69,12 @@ export default function IssuesTable({
   inconsistencies,
   onReset: _onReset,
   issueStatusMap,
-  onStatusChange
+  onStatusChange,
+  deltaSummary
 }: IssuesTableProps) {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterDelta, setFilterDelta] = useState<string>('all');
   const [showResolved, setShowResolved] = useState<boolean>(false);
   const [fingerprints, setFingerprints] = useState<Map<string, string>>(new Map());
 
@@ -92,6 +105,25 @@ export default function IssuesTable({
     return issueStatusMap.get(fp)?.id;
   };
 
+  // Helper to get delta classification for an issue
+  const getDeltaClassification = (issueId: string): DeltaClassification | undefined => {
+    if (!deltaSummary || deltaSummary.isFirstRun) return undefined;
+    const fp = fingerprints.get(issueId);
+    if (!fp) return undefined;
+    const issueDelta = deltaSummary.issues.find(d => d.fingerprint === fp);
+    return issueDelta?.classification;
+  };
+
+  // Count issues by delta classification
+  const deltaCounts = deltaSummary && !deltaSummary.isFirstRun
+    ? {
+        new: deltaSummary.newCount,
+        persisting: deltaSummary.persistingCount,
+        reintroduced: deltaSummary.reintroducedCount,
+        ignored: deltaSummary.ignoredCount,
+      }
+    : null;
+
   // Filter inconsistencies
   let filteredIssues = inconsistencies;
   if (filterSeverity !== 'all') {
@@ -99,6 +131,13 @@ export default function IssuesTable({
   }
   if (filterType !== 'all') {
     filteredIssues = filteredIssues.filter(inc => inc.type === filterType);
+  }
+  // Filter by delta classification
+  if (filterDelta !== 'all' && deltaSummary && !deltaSummary.isFirstRun) {
+    filteredIssues = filteredIssues.filter(inc => {
+      const classification = getDeltaClassification(inc.id);
+      return classification === filterDelta;
+    });
   }
   // Filter out resolved/ignored unless showResolved is true
   if (!showResolved) {
@@ -176,6 +215,27 @@ export default function IssuesTable({
           </select>
         </div>
 
+        {deltaCounts && (
+          <div className="filter-group">
+            <label htmlFor="delta-filter">Change:</label>
+            <select
+              id="delta-filter"
+              value={filterDelta}
+              onChange={(e) => setFilterDelta(e.target.value)}
+            >
+              <option value="all">All Changes</option>
+              <option value="new">New ({deltaCounts.new})</option>
+              <option value="persisting">Persisting ({deltaCounts.persisting})</option>
+              {deltaCounts.reintroduced > 0 && (
+                <option value="reintroduced">Reintroduced ({deltaCounts.reintroduced})</option>
+              )}
+              {deltaCounts.ignored > 0 && (
+                <option value="ignored">Ignored ({deltaCounts.ignored})</option>
+              )}
+            </select>
+          </div>
+        )}
+
         {resolvedCount > 0 && (
           <div className="filter-group filter-group--toggle">
             <label className="toggle-label">
@@ -198,6 +258,7 @@ export default function IssuesTable({
           const fp = fingerprints.get(issue.id);
           const isResolved = status === 'resolved';
           const isIgnored = status === 'ignored';
+          const deltaClass = getDeltaClassification(issue.id);
 
           return (
             <div
@@ -209,6 +270,11 @@ export default function IssuesTable({
                   {severityIcons[issue.severity]}
                 </span>
                 <span className="issue-type">{issue.type.replace(/-/g, ' ')}</span>
+                {deltaClass && deltaClass !== 'persisting' && (
+                  <span className={`issue-delta-badge issue-delta-badge--${deltaClass}`}>
+                    {deltaLabels[deltaClass]}
+                  </span>
+                )}
                 {status && status !== 'open' && (
                   <span className={`issue-status-badge issue-status-badge--${status}`}>
                     {status}

@@ -2,14 +2,17 @@
 
 import { formatRelativeTime } from '@/lib/browser/storage';
 import type { StoredProject, StoredAnalysis } from '@/types';
+import Sparkline from './Sparkline';
 
 interface ProjectCardProps {
   project: StoredProject;
   latestAnalysis?: StoredAnalysis;
+  healthTrend?: number[];
   onClick: () => void;
+  onReanalyze: (project: StoredProject) => void;
 }
 
-export default function ProjectCard({ project, latestAnalysis, onClick }: ProjectCardProps) {
+export default function ProjectCard({ project, latestAnalysis, healthTrend, onClick, onReanalyze }: ProjectCardProps) {
   const healthScore = latestAnalysis?.healthScore ?? 0;
   const issueCount = latestAnalysis?.issueCount ?? 0;
 
@@ -19,15 +22,25 @@ export default function ProjectCard({ project, latestAnalysis, onClick }: Projec
     return 'var(--color-high, #f85149)';
   };
 
+  const handleReanalyze = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    onReanalyze(project);
+  };
+
   return (
     <div className="project-card" onClick={onClick}>
       <div className="project-card-header">
         <h3 className="project-card-name">{project.name}</h3>
-        <div
-          className="project-card-health"
-          style={{ color: getHealthColor(healthScore) }}
-        >
-          {healthScore}%
+        <div className="project-card-health-container">
+          {healthTrend && healthTrend.length >= 2 && (
+            <Sparkline data={healthTrend} />
+          )}
+          <div
+            className="project-card-health"
+            style={{ color: getHealthColor(healthScore) }}
+          >
+            {healthScore}%
+          </div>
         </div>
       </div>
 
@@ -40,10 +53,17 @@ export default function ProjectCard({ project, latestAnalysis, onClick }: Projec
         </span>
       </div>
 
-      <div className="project-card-stats">
+      <div className="project-card-footer">
         <span className="project-card-issues">
           {issueCount} issue{issueCount !== 1 ? 's' : ''}
         </span>
+        <button
+          className="btn btn-reanalyze"
+          onClick={handleReanalyze}
+          title="Re-analyze this project"
+        >
+          Re-analyze
+        </button>
       </div>
     </div>
   );

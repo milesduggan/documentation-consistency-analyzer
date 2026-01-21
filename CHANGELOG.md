@@ -1,89 +1,77 @@
 # Changelog
 
-All notable changes to the Documentation Consistency Analyzer will be documented in this file.
+All notable changes to Turbo DCA 3000.
 
-## [0.3.0] - 2026-01-18 - Enhanced Analysis & Context Summary ✅
+## [0.5.0] - 2026-01-21 - Delta-First Analysis Engine
 
 ### Added
-- **Analysis Summary Component** - Comprehensive context display
-  - Analysis metadata (timestamp, files scanned, links checked)
-  - Plain English descriptions of each detection type
-  - Collapsible "What Was Checked" section explaining all 6 checks
-  - Collapsible Severity Guide (High/Medium/Low explanations)
-  - Export functionality (Download JSON, Copy Summary)
-- **Export Utilities** - New export module
-  - JSON download with formatted results
-  - Copy summary to clipboard (text format)
-  - Human-readable summary generation
-- **Enhanced Detection Types**
-  - Malformed links (empty URLs, missing text)
-  - Broken image links
-  - TODO/FIXME markers in documentation
-  - Orphaned files (not linked from anywhere)
+- **Delta classification** — Issues classified as NEW, PERSISTING, RESOLVED, REINTRODUCED, IGNORED
+- **Delta filter** — Filter issues by change status in IssuesTable
+- **Delta badges** — Visual badges (NEW, REINTRODUCED) on issue cards
+- **"Since Last Run" summary** — Shows issue changes and health delta
+- **Health attribution** — Breakdown of score changes (new issues, resolved, severity mix)
+- **Reintroduced detection** — Tracks issues that were resolved but came back
 
 ### Technical
-- Created `src/lib/browser/export.ts` - Export utility functions
-- Created `src/components/AnalysisSummary.tsx` - Summary display component
-- Modified `src/app/page.tsx` - Integrated summary component
-- Modified `src/app/globals.css` - Added summary card styling
-- Modified `src/lib/browser/analyzer.ts` - Added 4 new detection functions
-- Modified `src/types/index.ts` - Added new inconsistency types
-
-### Improved
-- Better context for understanding analysis results
-- Results page now explains what each check does
-- Users can review analysis details later with full context
-- Severity levels clearly explained with examples
-
-### Detection Summary (6 Total Types)
-1. **Broken Links** - Missing files or invalid anchors
-2. **Malformed Links** - Empty URLs or missing link text
-3. **Broken Images** - Missing image files
-4. **TODO Markers** - TODO, FIXME, XXX, HACK comments
-5. **Orphaned Files** - Markdown files with no incoming links
-6. **Broken Anchors** - Missing heading references
+- Created `src/lib/browser/delta.ts` — Delta computation module
+- Added `DeltaClassification` type to `src/types/index.ts`
+- Updated `IssuesTable.tsx` with delta filter and badges
+- Updated `AnalysisSummary.tsx` with delta summary section
+- Added delta-specific CSS styles
 
 ---
 
-## [0.2.0] - 2026-01-18 - Phase 1 Web UI Complete ✅
+## [0.4.0] - 2026-01-21 - Project Persistence & History
+
+### Added
+- **Dashboard** — Grid view of all stored projects with health scores
+- **Project history** — Expandable list of past analysis runs per project
+- **Issue status tracking** — Mark issues as resolved/ignored
+- **Status persistence** — Issue status survives re-analysis via fingerprinting
+- **Health scores** — 0-100 score based on issue severity and density
+
+### Technical
+- Created `src/components/Dashboard.tsx`
+- Created `src/components/ProjectCard.tsx`
+- Created `src/components/ProjectHistory.tsx`
+- Created `src/lib/browser/db.ts` — IndexedDB wrapper
+- Created `src/lib/browser/storage.ts` — Persistence API
+- Created `src/lib/browser/fingerprint.ts` — Issue hashing
+
+---
+
+## [0.3.0] - 2026-01-18 - Enhanced Analysis & Context
+
+### Added
+- **Analysis Summary** — Context display with metadata and explanations
+- **Export utilities** — JSON download and clipboard copy
+- **New detections** — Malformed links, broken images, TODO markers, orphaned files
+
+### Technical
+- Created `src/lib/browser/export.ts`
+- Created `src/components/AnalysisSummary.tsx`
+- Extended analyzer with 4 new detection functions
+
+---
+
+## [0.2.0] - 2026-01-18 - Phase 1 Web UI
 
 ### Added
 - Browser-based web UI with Next.js 14
 - Client-side file upload (drag-drop and file picker)
-- Real-time progress tracking during analysis
-- Filterable results table by severity (high/medium/low)
-- Broken internal link detection for Markdown files
-- Broken anchor link detection (missing headings)
+- Real-time progress tracking
+- Filterable results by severity
+- Broken internal link detection
+- Broken anchor link detection
 - File System Access API integration
-- Browser compatibility checking
 
 ### Technical
-- Created `src/app/layout.tsx` - Next.js root layout
-- Created `src/app/page.tsx` - Main UI orchestrator
-- Created `src/app/globals.css` - Global styles with severity colors
-- Created `src/lib/browser/file-reader.ts` - File System Access API wrapper
-- Created `src/lib/browser/analyzer.ts` - Browser-compatible analysis engine
-- Created `src/components/UploadZone.tsx` - Upload interface
-- Created `src/components/IssuesTable.tsx` - Results display with filtering
-
-### Documentation
-- Updated README.md to reflect Phase 1 scope
-- Added ADR-009 documenting web UI scope decision
-- Updated browser compatibility information
-
-### Supported Browsers
-- Chrome 86+
-- Edge 86+
-- Opera 72+
-
-### Known Limitations
-- Firefox and Safari not supported (File System Access API unavailable)
-- No AI-powered semantic analysis (planned for Phase 2)
-- No code comment extraction yet (planned for Phase 2)
+- Created core app structure (`src/app/`, `src/components/`, `src/lib/browser/`)
+- Markdown parsing with unified + remark-parse
 
 ---
 
-## [0.1.0] - 2026-01-17 - CLI MVP Complete
+## [0.1.0] - 2026-01-17 - CLI MVP
 
 ### Added
 - File discovery for .md, .js, .ts, .py files
@@ -91,11 +79,3 @@ All notable changes to the Documentation Consistency Analyzer will be documented
 - Broken internal link detection
 - Console and JSON output
 - Configuration via config.json
-- Directory exclusion (node_modules, .git, dist, build, .next, coverage)
-
-### Technical
-- CLI entry point: `src/cli.ts`
-- File discovery: `src/lib/input/file-discovery.ts`
-- Markdown parser: `src/lib/parse/markdown-parser.ts`
-- Link validator: `src/lib/analyze/link-validator.ts`
-- JSON formatter: `src/lib/output/json-formatter.ts`

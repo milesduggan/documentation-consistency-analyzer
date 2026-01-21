@@ -335,14 +335,38 @@ Created browser-compatible analyzer using:
 
 ---
 
-## Future Decisions (To Be Made)
+## ADR-010: Delta-First Analysis with Historical Reintroduced Detection
 
-### Pending ADRs:
-- **Database choice for Phase 2** (PostgreSQL vs MongoDB)
-- **License for potential open source release** (MIT vs Apache 2.0)
-- **CI/CD integration approach** (GitHub Actions vs GitLab CI)
-- **Vector database for embeddings at scale** (FAISS vs Pinecone vs Weaviate)
-- **Dark mode implementation** (CSS variables vs theme toggle vs system preference)
+**Date:** 2026-01-21
+**Status:** Accepted
+
+**Decision:** Implement delta tracking that classifies issues as NEW, PERSISTING, RESOLVED, REINTRODUCED, or IGNORED, using historical data to detect reintroduced issues.
+
+**Context:**
+Users need to understand what changed between analysis runs. Simply showing a count of issues doesn't indicate whether the project is improving or regressing.
+
+**Options Considered:**
+1. **Immediate previous only** — Only compare to the last run
+2. **Historical tracking (chosen)** — Track all-time resolved issues to detect reintroduction
+3. **No delta** — Just show current state
+
+**Decision Rationale:**
+- Historical approach catches issues that "keep coming back" (chronic problems)
+- `firstSeenAt` already stored in schema
+- Status is authoritative (user explicitly resolved)
+- Enables regression detection and CI gating (future)
+
+**Implementation:**
+- `delta.ts` computes classification by comparing fingerprint sets
+- REINTRODUCED = fingerprint was ever marked resolved in project history
+- Health attribution shows points lost/gained from new/resolved issues
+
+**Consequences:**
+- ✅ Users see exactly what changed since last run
+- ✅ Reintroduced issues highlight chronic problems
+- ✅ Foundation for CI/CD gating on regressions
+- ⚠️ First run shows no delta (expected behavior)
+- ⚠️ Requires storing all historical issues (manageable for typical projects)
 
 ---
 

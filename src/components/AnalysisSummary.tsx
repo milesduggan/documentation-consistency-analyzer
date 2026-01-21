@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import type { AnalysisResult } from '@/lib/browser/analyzer';
+import type { DeltaSummary } from '@/lib/browser/delta';
 import { downloadJSON, copySummaryToClipboard } from '@/lib/browser/export';
 
 interface AnalysisSummaryProps {
   results: AnalysisResult;
+  deltaSummary?: DeltaSummary | null;
 }
 
-export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
+export default function AnalysisSummary({ results, deltaSummary }: AnalysisSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [copyStatus, setCopyStatus] = useState<string>('');
 
@@ -48,6 +50,50 @@ export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
 
   return (
     <div className="analysis-summary">
+      {/* Delta Summary - Since Last Run */}
+      {deltaSummary && !deltaSummary.isFirstRun && (
+        <div className="summary-card delta-summary">
+          <h3>Since Last Run</h3>
+
+          {deltaSummary.hasRegressions && (
+            <div className="delta-alert delta-alert--regression">
+              {deltaSummary.newBySeverity.high > 0 && (
+                <span>{deltaSummary.newBySeverity.high} new HIGH severity issue{deltaSummary.newBySeverity.high > 1 ? 's' : ''}</span>
+              )}
+              {deltaSummary.reintroducedCount > 0 && (
+                <span>{deltaSummary.reintroducedCount} reintroduced issue{deltaSummary.reintroducedCount > 1 ? 's' : ''}</span>
+              )}
+            </div>
+          )}
+
+          <div className="delta-stats">
+            <span className="delta-stat delta-stat--new">+{deltaSummary.newCount} new</span>
+            <span className="delta-stat delta-stat--resolved">-{deltaSummary.resolvedCount} resolved</span>
+            <span className="delta-stat delta-stat--persisting">{deltaSummary.persistingCount} unchanged</span>
+            {deltaSummary.reintroducedCount > 0 && (
+              <span className="delta-stat delta-stat--reintroduced">
+                {deltaSummary.reintroducedCount} reintroduced
+              </span>
+            )}
+            {deltaSummary.ignoredCount > 0 && (
+              <span className="delta-stat delta-stat--ignored">{deltaSummary.ignoredCount} ignored</span>
+            )}
+          </div>
+
+          {deltaSummary.previousHealthScore !== null && (
+            <div className="health-delta">
+              <span className="health-label">Health:</span>
+              <span className="health-previous">{deltaSummary.previousHealthScore}%</span>
+              <span className="health-arrow">→</span>
+              <span className="health-current">{deltaSummary.currentHealthScore}%</span>
+              <span className={`health-change ${deltaSummary.healthDelta >= 0 ? 'positive' : 'negative'}`}>
+                ({deltaSummary.healthDelta >= 0 ? '+' : ''}{deltaSummary.healthDelta})
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Section 1: What Was Checked (Expandable) */}
       <div className="summary-card collapsible">
         <div

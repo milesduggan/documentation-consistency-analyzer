@@ -14,6 +14,7 @@ import { analyzeProject } from '@/lib/browser/analyzer';
 import type { AnalysisProgress, AnalysisResult } from '@/lib/browser/analyzer';
 import { useTickerContext } from '@/context/TickerContext';
 import { saveAnalysis, getLatestAnalysis, formatRelativeTime, getAllProjects, getIssueStatusMap, updateIssueStatus } from '@/lib/browser/storage';
+import { computeDelta, type DeltaSummary } from '@/lib/browser/delta';
 import type { StoredAnalysis, StoredProject, StoredIssue } from '@/types';
 
 type AppState = 'dashboard' | 'history' | 'upload' | 'analyzing' | 'results';
@@ -30,6 +31,7 @@ export default function Home() {
   const [lastAnalysis, setLastAnalysis] = useState<StoredAnalysis | null>(null);
   const [selectedProject, setSelectedProject] = useState<StoredProject | null>(null);
   const [issueStatusMap, setIssueStatusMap] = useState<Map<string, { id: string; status: StoredIssue['status'] }>>(new Map());
+  const [deltaSummary, setDeltaSummary] = useState<DeltaSummary | null>(null);
 
   const { setTickerData } = useTickerContext();
 
@@ -116,7 +118,16 @@ export default function Home() {
         console.warn('Failed to load issue status:', statusErr);
       }
 
-      // Step 5: Show results
+      // Step 5: Compute delta from previous run
+      try {
+        const delta = await computeDelta(dirHandle.name, analysisResults);
+        setDeltaSummary(delta);
+      } catch (deltaErr) {
+        console.warn('Failed to compute delta:', deltaErr);
+        setDeltaSummary(null);
+      }
+
+      // Step 6: Show results
       setResults(analysisResults);
       setState('results');
       setActiveView('overview');
@@ -134,6 +145,7 @@ export default function Home() {
     setActiveView('overview');
     setProjectName('');
     setLastAnalysis(null);
+    setDeltaSummary(null);
   };
 
   const handleSelectProject = (project: StoredProject) => {
@@ -148,6 +160,35 @@ export default function Home() {
 
   const handleNewAnalysis = () => {
     setState('upload');
+  };
+
+  const handleReanalyze = async (project: StoredProject) => {
+    try {
+      // Prompt user to select folder - use project name as picker ID for browser to remember
+      // @ts-expect-error - File System Access API types not yet in lib.dom.d.ts
+      const dirHandle = await window.showDirectoryPicker({
+        id: `reanalyze-${project.id.substring(0, 8)}`,
+        mode: 'read',
+        startIn: 'documents',
+      });
+
+      // Verify folder name matches (user might select wrong folder)
+      if (dirHandle.name !== project.name) {
+        const confirmed = window.confirm(
+          `Selected folder "${dirHandle.name}" doesn't match project "${project.name}". Continue anyway?`
+        );
+        if (!confirmed) return;
+      }
+
+      // Use existing analysis flow
+      await handleFolderSelected(dirHandle);
+    } catch (err) {
+      // User cancelled picker or permission denied
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Re-analyze failed:', err);
+        setError(err.message);
+      }
+    }
   };
 
   const handleStatusChange = async (issueId: string, fingerprint: string, status: StoredIssue['status']) => {
@@ -186,6 +227,7 @@ export default function Home() {
         <Dashboard
           onSelectProject={handleSelectProject}
           onNewAnalysis={handleNewAnalysis}
+          onReanalyze={handleReanalyze}
         />
       </div>
     );
@@ -295,7 +337,7 @@ export default function Home() {
               </div>
 
               {/* Analysis Summary */}
-              <AnalysisSummary results={results} />
+              <AnalysisSummary results={results} deltaSummary={deltaSummary} />
 
               {/* AI Assistant - Wide Section */}
               <div className="ai-section">
@@ -309,6 +351,7 @@ export default function Home() {
                 onReset={handleReset}
                 issueStatusMap={issueStatusMap}
                 onStatusChange={handleStatusChange}
+                deltaSummary={deltaSummary}
               />
             </div>
           )}

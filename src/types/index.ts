@@ -18,6 +18,9 @@ export interface ContentObject {
 
 export type Confidence = 'high' | 'medium' | 'low';
 
+// Delta classification for issue tracking across analysis runs
+export type DeltaClassification = 'new' | 'persisting' | 'resolved' | 'reintroduced' | 'ignored';
+
 export interface Inconsistency {
   id: string;
   type:

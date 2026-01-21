@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllProjects, getLatestAnalysis } from '@/lib/browser/storage';
+import { getAllProjects, getAnalysisHistory } from '@/lib/browser/storage';
 import type { StoredProject, StoredAnalysis } from '@/types';
 import ProjectCard from './ProjectCard';
 
 interface DashboardProps {
   onSelectProject: (project: StoredProject) => void;
   onNewAnalysis: () => void;
+  onReanalyze: (project: StoredProject) => void;
 }
 
-export default function Dashboard({ onSelectProject, onNewAnalysis }: DashboardProps) {
+export default function Dashboard({ onSelectProject, onNewAnalysis, onReanalyze }: DashboardProps) {
   const [projects, setProjects] = useState<StoredProject[]>([]);
   const [latestAnalyses, setLatestAnalyses] = useState<Map<string, StoredAnalysis>>(new Map());
+  const [healthTrends, setHealthTrends] = useState<Map<string, number[]>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,15 +30,23 @@ export default function Dashboard({ onSelectProject, onNewAnalysis }: DashboardP
       );
       setProjects(allProjects);
 
-      // Load latest analysis for each project (for health score)
+      // Load analysis history for each project (for health score + sparkline)
       const analysisMap = new Map<string, StoredAnalysis>();
+      const trendsMap = new Map<string, number[]>();
+
       for (const project of allProjects) {
-        const latest = await getLatestAnalysis(project.name, project.path);
-        if (latest) {
-          analysisMap.set(project.id, latest);
+        const history = await getAnalysisHistory(project.name, 10, project.path);
+        if (history.length > 0) {
+          // Latest is first
+          analysisMap.set(project.id, history[0]);
+          // Reverse for sparkline (oldest to newest)
+          const scores = history.map(a => a.healthScore).reverse();
+          trendsMap.set(project.id, scores);
         }
       }
+
       setLatestAnalyses(analysisMap);
+      setHealthTrends(trendsMap);
     } catch (err) {
       console.error('Failed to load projects:', err);
     } finally {
@@ -68,12 +78,15 @@ export default function Dashboard({ onSelectProject, onNewAnalysis }: DashboardP
         <div className="dashboard-grid">
           {projects.map((project) => {
             const latest = latestAnalyses.get(project.id);
+            const trend = healthTrends.get(project.id);
             return (
               <ProjectCard
                 key={project.id}
                 project={project}
                 latestAnalysis={latest}
+                healthTrend={trend}
                 onClick={() => onSelectProject(project)}
+                onReanalyze={onReanalyze}
               />
             );
           })}
