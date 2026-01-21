@@ -5,6 +5,34 @@ import { useTickerContext } from '@/context/TickerContext';
 export default function StatsTicker() {
   const { tickerData } = useTickerContext();
 
+  // Dashboard mode - single full-width ticker
+  if (tickerData.mode === 'dashboard') {
+    return (
+      <div className="stats-ticker stats-ticker--single">
+        <div className="stats-ticker__rows">
+          <div className="stats-ticker__row">
+            <span className="stats-ticker__content">THE TURBO DCA 3000 ▪ PROJECT DASHBOARD</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // History mode - single full-width ticker with project name
+  if (tickerData.mode === 'history') {
+    return (
+      <div className="stats-ticker stats-ticker--single">
+        <div className="stats-ticker__rows">
+          <div className="stats-ticker__row">
+            <span className="stats-ticker__content">
+              THE TURBO DCA 3000 ▪ HISTORY ▪ {tickerData.projectName?.toUpperCase() || 'PROJECT'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Idle mode - single full-width ticker with merged content
   if (tickerData.mode === 'idle') {
     return (

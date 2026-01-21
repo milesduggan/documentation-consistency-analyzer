@@ -8,14 +8,15 @@ import AIChat from '@/components/AIChat';
 import Sidebar from '@/components/Sidebar';
 import TurboSnail from '@/components/TurboSnail';
 import Dashboard from '@/components/Dashboard';
+import ProjectHistory from '@/components/ProjectHistory';
 import { readDirectory } from '@/lib/browser/file-reader';
 import { analyzeProject } from '@/lib/browser/analyzer';
 import type { AnalysisProgress, AnalysisResult } from '@/lib/browser/analyzer';
 import { useTickerContext } from '@/context/TickerContext';
-import { saveAnalysis, getLatestAnalysis, formatRelativeTime, getAllProjects } from '@/lib/browser/storage';
-import type { StoredAnalysis, StoredProject } from '@/types';
+import { saveAnalysis, getLatestAnalysis, formatRelativeTime, getAllProjects, getIssueStatusMap, updateIssueStatus } from '@/lib/browser/storage';
+import type { StoredAnalysis, StoredProject, StoredIssue } from '@/types';
 
-type AppState = 'dashboard' | 'upload' | 'analyzing' | 'results';
+type AppState = 'dashboard' | 'history' | 'upload' | 'analyzing' | 'results';
 type ResultsView = 'overview' | 'results';
 
 export default function Home() {
@@ -27,6 +28,8 @@ export default function Home() {
   const [activeView, setActiveView] = useState<ResultsView>('overview');
   const [projectName, setProjectName] = useState<string>('');
   const [lastAnalysis, setLastAnalysis] = useState<StoredAnalysis | null>(null);
+  const [selectedProject, setSelectedProject] = useState<StoredProject | null>(null);
+  const [issueStatusMap, setIssueStatusMap] = useState<Map<string, { id: string; status: StoredIssue['status'] }>>(new Map());
 
   const { setTickerData } = useTickerContext();
 
@@ -52,6 +55,8 @@ export default function Home() {
   useEffect(() => {
     if (state === 'dashboard') {
       setTickerData({ mode: 'dashboard' });
+    } else if (state === 'history' && selectedProject) {
+      setTickerData({ mode: 'history', projectName: selectedProject.name });
     } else if (state === 'upload') {
       setTickerData({ mode: 'idle' });
     } else if (state === 'analyzing' && projectName) {
@@ -69,7 +74,7 @@ export default function Home() {
         },
       });
     }
-  }, [state, results, projectName, setTickerData]);
+  }, [state, results, projectName, selectedProject, setTickerData]);
 
   const handleFolderSelected = async (dirHandle: FileSystemDirectoryHandle) => {
     try {
@@ -103,7 +108,15 @@ export default function Home() {
         console.warn('Failed to save analysis to IndexedDB:', saveErr);
       }
 
-      // Step 4: Show results
+      // Step 4: Load issue status map
+      try {
+        const statusMap = await getIssueStatusMap(dirHandle.name, analysisResults.inconsistencies);
+        setIssueStatusMap(statusMap);
+      } catch (statusErr) {
+        console.warn('Failed to load issue status:', statusErr);
+      }
+
+      // Step 5: Show results
       setResults(analysisResults);
       setState('results');
       setActiveView('overview');
@@ -114,13 +127,41 @@ export default function Home() {
   };
 
   const handleReset = () => {
-    setState('upload');
+    setState('dashboard');
     setResults(null);
     setProgress(null);
     setError('');
     setActiveView('overview');
     setProjectName('');
     setLastAnalysis(null);
+  };
+
+  const handleSelectProject = (project: StoredProject) => {
+    setSelectedProject(project);
+    setState('history');
+  };
+
+  const handleBackToDashboard = () => {
+    setSelectedProject(null);
+    setState('dashboard');
+  };
+
+  const handleNewAnalysis = () => {
+    setState('upload');
+  };
+
+  const handleStatusChange = async (issueId: string, fingerprint: string, status: StoredIssue['status']) => {
+    try {
+      await updateIssueStatus(issueId, status);
+      // Update local state
+      setIssueStatusMap((prev) => {
+        const updated = new Map(prev);
+        updated.set(fingerprint, { id: issueId, status });
+        return updated;
+      });
+    } catch (err) {
+      console.error('Failed to update issue status:', err);
+    }
   };
 
   // Check for previous analysis when returning to a project
@@ -134,6 +175,31 @@ export default function Home() {
       console.warn('Failed to load previous analysis:', err);
     }
   };
+
+  // Dashboard State
+  if (state === 'dashboard' && !loadingProjects) {
+    return (
+      <div className="dashboard-page">
+        <header className="dashboard-header-logo">
+          <TurboSnail size={60} />
+        </header>
+        <Dashboard
+          onSelectProject={handleSelectProject}
+          onNewAnalysis={handleNewAnalysis}
+        />
+      </div>
+    );
+  }
+
+  // History State
+  if (state === 'history' && selectedProject) {
+    return (
+      <ProjectHistory
+        project={selectedProject}
+        onBack={handleBackToDashboard}
+      />
+    );
+  }
 
   // Upload State
   if (state === 'upload') {
@@ -241,6 +307,8 @@ export default function Home() {
               <IssuesTable
                 inconsistencies={results.inconsistencies}
                 onReset={handleReset}
+                issueStatusMap={issueStatusMap}
+                onStatusChange={handleStatusChange}
               />
             </div>
           )}

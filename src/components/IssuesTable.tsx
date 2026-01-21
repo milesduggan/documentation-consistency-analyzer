@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react';
-import type { Inconsistency } from '@/types';
+import { useState, useEffect } from 'react';
+import type { Inconsistency, StoredIssue } from '@/types';
+import { generateIssueFingerprint } from '@/lib/browser/storage';
 
 interface IssuesTableProps {
   inconsistencies: Inconsistency[];
   onReset: () => void;
+  issueStatusMap?: Map<string, { id: string; status: StoredIssue['status'] }>;
+  onStatusChange?: (issueId: string, fingerprint: string, status: StoredIssue['status']) => void;
 }
 
 // Severity icons
@@ -51,9 +54,43 @@ function getExplanation(type: string, severity: string): string {
   return severityExplanations[type]?.[severity] || 'This issue should be reviewed';
 }
 
-export default function IssuesTable({ inconsistencies, onReset: _onReset }: IssuesTableProps) {
+export default function IssuesTable({
+  inconsistencies,
+  onReset: _onReset,
+  issueStatusMap,
+  onStatusChange
+}: IssuesTableProps) {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [showResolved, setShowResolved] = useState<boolean>(false);
+  const [fingerprints, setFingerprints] = useState<Map<string, string>>(new Map());
+
+  // Generate fingerprints for all issues on mount
+  useEffect(() => {
+    const generateFingerprints = async () => {
+      const fpMap = new Map<string, string>();
+      for (const issue of inconsistencies) {
+        const fp = await generateIssueFingerprint(issue);
+        fpMap.set(issue.id, fp);
+      }
+      setFingerprints(fpMap);
+    };
+    generateFingerprints();
+  }, [inconsistencies]);
+
+  // Helper to get status for an issue
+  const getIssueStatus = (issueId: string): StoredIssue['status'] | undefined => {
+    const fp = fingerprints.get(issueId);
+    if (!fp || !issueStatusMap) return undefined;
+    return issueStatusMap.get(fp)?.status;
+  };
+
+  // Helper to get stored ID for an issue
+  const getStoredId = (issueId: string): string | undefined => {
+    const fp = fingerprints.get(issueId);
+    if (!fp || !issueStatusMap) return undefined;
+    return issueStatusMap.get(fp)?.id;
+  };
 
   // Filter inconsistencies
   let filteredIssues = inconsistencies;
@@ -63,6 +100,19 @@ export default function IssuesTable({ inconsistencies, onReset: _onReset }: Issu
   if (filterType !== 'all') {
     filteredIssues = filteredIssues.filter(inc => inc.type === filterType);
   }
+  // Filter out resolved/ignored unless showResolved is true
+  if (!showResolved) {
+    filteredIssues = filteredIssues.filter(inc => {
+      const status = getIssueStatus(inc.id);
+      return !status || status === 'open';
+    });
+  }
+
+  // Count resolved/ignored
+  const resolvedCount = inconsistencies.filter(inc => {
+    const status = getIssueStatus(inc.id);
+    return status === 'resolved' || status === 'ignored';
+  }).length;
 
   // Count by severity
   const severityCounts = inconsistencies.reduce((acc, inc) => {
@@ -125,43 +175,98 @@ export default function IssuesTable({ inconsistencies, onReset: _onReset }: Issu
             ))}
           </select>
         </div>
+
+        {resolvedCount > 0 && (
+          <div className="filter-group filter-group--toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showResolved}
+                onChange={(e) => setShowResolved(e.target.checked)}
+              />
+              Show resolved/ignored ({resolvedCount})
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Issues list */}
       <div className="issues-list">
-        {filteredIssues.map((issue) => (
-          <div
-            key={issue.id}
-            className={`issue-card issue-card-${issue.severity}`}
-          >
-            <div className="issue-header">
-              <span className={`issue-severity severity-${issue.severity}`}>
-                {severityIcons[issue.severity]}
-              </span>
-              <span className="issue-type">{issue.type.replace(/-/g, ' ')}</span>
-            </div>
+        {filteredIssues.map((issue) => {
+          const status = getIssueStatus(issue.id);
+          const storedId = getStoredId(issue.id);
+          const fp = fingerprints.get(issue.id);
+          const isResolved = status === 'resolved';
+          const isIgnored = status === 'ignored';
 
-            <div className="issue-message">{issue.message}</div>
-
-            <div className="issue-location">
-              {issue.location.filePath}
-              {issue.location.lineNumber && `:${issue.location.lineNumber}`}
-            </div>
-
-            {issue.context && (
-              <div className="issue-context">
-                <code>{issue.context}</code>
+          return (
+            <div
+              key={issue.id}
+              className={`issue-card issue-card-${issue.severity}${isResolved ? ' issue-card--resolved' : ''}${isIgnored ? ' issue-card--ignored' : ''}`}
+            >
+              <div className="issue-header">
+                <span className={`issue-severity severity-${issue.severity}`}>
+                  {severityIcons[issue.severity]}
+                </span>
+                <span className="issue-type">{issue.type.replace(/-/g, ' ')}</span>
+                {status && status !== 'open' && (
+                  <span className={`issue-status-badge issue-status-badge--${status}`}>
+                    {status}
+                  </span>
+                )}
               </div>
-            )}
 
-            <div className="issue-footer">
-              <span className="issue-explanation">{getExplanation(issue.type, issue.severity)}</span>
-              {issue.suggestion && (
-                <span className="issue-suggestion">{issue.suggestion}</span>
+              <div className="issue-message">{issue.message}</div>
+
+              <div className="issue-location">
+                {issue.location.filePath}
+                {issue.location.lineNumber && `:${issue.location.lineNumber}`}
+              </div>
+
+              {issue.context && (
+                <div className="issue-context">
+                  <code>{issue.context}</code>
+                </div>
+              )}
+
+              <div className="issue-footer">
+                <span className="issue-explanation">{getExplanation(issue.type, issue.severity)}</span>
+                {issue.suggestion && (
+                  <span className="issue-suggestion">{issue.suggestion}</span>
+                )}
+              </div>
+
+              {onStatusChange && storedId && fp && (
+                <div className="issue-actions">
+                  {status !== 'resolved' && (
+                    <button
+                      className="issue-status-btn issue-status-btn--resolve"
+                      onClick={() => onStatusChange(storedId, fp, 'resolved')}
+                    >
+                      ✓ Resolve
+                    </button>
+                  )}
+                  {status !== 'ignored' && (
+                    <button
+                      className="issue-status-btn issue-status-btn--ignore"
+                      onClick={() => onStatusChange(storedId, fp, 'ignored')}
+                    >
+                      ✗ Ignore
+                    </button>
+                  )}
+                  {(status === 'resolved' || status === 'ignored') && (
+                    <button
+                      className="issue-status-btn issue-status-btn--reopen"
+                      onClick={() => onStatusChange(storedId, fp, 'open')}
+                    >
+                      ↺ Reopen
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredIssues.length === 0 && (

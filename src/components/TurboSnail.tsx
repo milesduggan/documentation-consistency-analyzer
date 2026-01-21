@@ -3,8 +3,6 @@
 export default function TurboSnail({ size = 64 }: { size?: number }) {
   // 8-bit pixel art turbo snail - amber/gold color scheme to match the LED theme
   // Each rect represents a pixel in a 16x16 grid
-  const pixelSize = size / 16;
-
   return (
     <svg
       className="turbo-snail"

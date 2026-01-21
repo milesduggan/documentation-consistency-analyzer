@@ -19,11 +19,14 @@ import {
   calculateHealthScore,
   countIssuesByType,
 } from './fingerprint';
-import type { StoredProject, StoredAnalysis, StoredIssue } from '@/types';
+import type { StoredProject, StoredAnalysis, StoredIssue, Inconsistency } from '@/types';
 import type { AnalysisResult } from './analyzer';
 
 // Re-export types for convenience
 export type { StoredProject, StoredAnalysis, StoredIssue };
+
+// Re-export fingerprint function for client-side use
+export { generateIssueFingerprint } from './fingerprint';
 
 /**
  * Save an analysis result to IndexedDB
@@ -273,6 +276,46 @@ export async function updateIssueStatus(
     issue.status = status;
     await put(STORES.ISSUES, issue);
   }
+}
+
+/**
+ * Get status map for a set of inconsistencies
+ * Maps fingerprint -> {id, status} for looking up stored status
+ */
+export async function getIssueStatusMap(
+  projectName: string,
+  inconsistencies: Inconsistency[],
+  projectPath?: string
+): Promise<Map<string, { id: string; status: StoredIssue['status'] }>> {
+  const statusMap = new Map<string, { id: string; status: StoredIssue['status'] }>();
+
+  if (!isIndexedDBAvailable() || inconsistencies.length === 0) {
+    return statusMap;
+  }
+
+  const projectId = await generateProjectId(projectName, projectPath);
+  const storedIssues = await getByIndex<StoredIssue>(STORES.ISSUES, 'projectId', projectId);
+
+  // Build a map of fingerprint -> most recent stored issue
+  const fingerprintToIssue = new Map<string, StoredIssue>();
+  for (const issue of storedIssues) {
+    const existing = fingerprintToIssue.get(issue.fingerprint);
+    // Keep the most recent one (by firstSeenAt or just overwrite)
+    if (!existing || issue.firstSeenAt > existing.firstSeenAt) {
+      fingerprintToIssue.set(issue.fingerprint, issue);
+    }
+  }
+
+  // Generate fingerprints for current inconsistencies and match
+  for (const inconsistency of inconsistencies) {
+    const fingerprint = await generateIssueFingerprint(inconsistency);
+    const storedIssue = fingerprintToIssue.get(fingerprint);
+    if (storedIssue) {
+      statusMap.set(fingerprint, { id: storedIssue.id, status: storedIssue.status });
+    }
+  }
+
+  return statusMap;
 }
 
 /**

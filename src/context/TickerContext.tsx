@@ -11,7 +11,7 @@ export interface TickerMetrics {
 }
 
 export interface TickerData {
-  mode: 'idle' | 'project' | 'results';
+  mode: 'idle' | 'dashboard' | 'history' | 'project' | 'results';
   projectName?: string;
   metrics?: TickerMetrics;
 }
