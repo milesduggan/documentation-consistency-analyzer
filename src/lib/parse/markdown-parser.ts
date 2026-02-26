@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
-import type { Root, Link, Heading, Text } from 'mdast';
+import type { Root, Link, Heading, Text, RootContent } from 'mdast';
 import { FileMetadata } from '@/types';
 
 export interface ParsedMarkdown {
@@ -80,7 +80,7 @@ export async function parseMarkdown(
 /**
  * Extract text content from a node
  */
-function extractText(node: any): string {
+function extractText(node: Link | Heading | RootContent): string {
   let text = '';
 
   visit(node, 'text', (textNode: Text) => {

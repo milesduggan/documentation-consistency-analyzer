@@ -1,19 +1,21 @@
 'use client'
 
 import { useState } from 'react';
-import type { Inconsistency } from '@/types';
 import type { AnalysisResult } from '@/lib/browser/analyzer';
-import { downloadJSON, copySummaryToClipboard } from '@/lib/browser/export';
+import type { DeltaSummary } from '@/lib/browser/delta';
+import { downloadJSON, copySummaryToClipboard, downloadCICDJSON } from '@/lib/browser/export';
 
 interface AnalysisSummaryProps {
   results: AnalysisResult;
+  deltaSummary?: DeltaSummary | null;
+  projectName?: string;
 }
 
-export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
+export default function AnalysisSummary({ results, deltaSummary, projectName = 'analysis' }: AnalysisSummaryProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [copyStatus, setCopyStatus] = useState<string>('');
 
-  const { metadata, inconsistencies } = results;
+  const { inconsistencies } = results;
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -35,17 +37,15 @@ export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
       await copySummaryToClipboard(results);
       setCopyStatus('Copied!');
       setTimeout(() => setCopyStatus(''), 2000);
-    } catch (err) {
+    } catch {
       setCopyStatus('Failed to copy');
       setTimeout(() => setCopyStatus(''), 2000);
     }
   };
 
-  // Count by severity
-  const severityCounts = inconsistencies.reduce((acc, inc) => {
-    acc[inc.severity] = (acc[inc.severity] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const handleDownloadCICD = () => {
+    downloadCICDJSON(results, deltaSummary ?? null, projectName);
+  };
 
   // Count by type
   const typeCounts = inconsistencies.reduce((acc, inc) => {
@@ -55,6 +55,50 @@ export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
 
   return (
     <div className="analysis-summary">
+      {/* Delta Summary - Since Last Run */}
+      {deltaSummary && !deltaSummary.isFirstRun && (
+        <div className="summary-card delta-summary">
+          <h3>Since Last Run</h3>
+
+          {deltaSummary.hasRegressions && (
+            <div className="delta-alert delta-alert--regression">
+              {deltaSummary.newBySeverity.high > 0 && (
+                <span>{deltaSummary.newBySeverity.high} new HIGH severity issue{deltaSummary.newBySeverity.high > 1 ? 's' : ''}</span>
+              )}
+              {deltaSummary.reintroducedCount > 0 && (
+                <span>{deltaSummary.reintroducedCount} reintroduced issue{deltaSummary.reintroducedCount > 1 ? 's' : ''}</span>
+              )}
+            </div>
+          )}
+
+          <div className="delta-stats">
+            <span className="delta-stat delta-stat--new">+{deltaSummary.newCount} new</span>
+            <span className="delta-stat delta-stat--resolved">-{deltaSummary.resolvedCount} resolved</span>
+            <span className="delta-stat delta-stat--persisting">{deltaSummary.persistingCount} unchanged</span>
+            {deltaSummary.reintroducedCount > 0 && (
+              <span className="delta-stat delta-stat--reintroduced">
+                {deltaSummary.reintroducedCount} reintroduced
+              </span>
+            )}
+            {deltaSummary.ignoredCount > 0 && (
+              <span className="delta-stat delta-stat--ignored">{deltaSummary.ignoredCount} ignored</span>
+            )}
+          </div>
+
+          {deltaSummary.previousHealthScore !== null && (
+            <div className="health-delta">
+              <span className="health-label">Health:</span>
+              <span className="health-previous">{deltaSummary.previousHealthScore}%</span>
+              <span className="health-arrow">→</span>
+              <span className="health-current">{deltaSummary.currentHealthScore}%</span>
+              <span className={`health-change ${deltaSummary.healthDelta >= 0 ? 'positive' : 'negative'}`}>
+                ({deltaSummary.healthDelta >= 0 ? '+' : ''}{deltaSummary.healthDelta})
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Section 1: What Was Checked (Expandable) */}
       <div className="summary-card collapsible">
         <div
@@ -141,6 +185,9 @@ export default function AnalysisSummary({ results }: AnalysisSummaryProps) {
         <div className="export-buttons">
           <button onClick={handleDownloadJSON} className="export-btn">
             Download JSON Report
+          </button>
+          <button onClick={handleDownloadCICD} className="export-btn">
+            Download CI/CD Report
           </button>
           <button onClick={handleCopySummary} className="export-btn secondary">
             Copy Summary

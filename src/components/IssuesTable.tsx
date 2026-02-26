@@ -1,12 +1,28 @@
 'use client'
 
-import { useState } from 'react';
-import type { Inconsistency } from '@/types';
+import { useState, useEffect } from 'react';
+import type { Inconsistency, StoredIssue, DeltaClassification } from '@/types';
+import type { DeltaSummary } from '@/lib/browser/delta';
+import { generateIssueFingerprint } from '@/lib/browser/storage';
 
 interface IssuesTableProps {
   inconsistencies: Inconsistency[];
   onReset: () => void;
+  issueStatusMap?: Map<string, { id: string; status: StoredIssue['status']; assignee?: string }>;
+  onStatusChange?: (issueId: string, fingerprint: string, status: StoredIssue['status']) => void;
+  onBulkStatusChange?: (updates: Array<{ issueId: string; fingerprint: string; status: StoredIssue['status'] }>) => void;
+  onAssigneeChange?: (issueId: string, fingerprint: string, assignee: string | undefined) => void;
+  deltaSummary?: DeltaSummary | null;
 }
+
+// Delta classification labels and colors
+const deltaLabels: Record<DeltaClassification, string> = {
+  new: 'NEW',
+  persisting: 'PERSISTING',
+  resolved: 'RESOLVED',
+  reintroduced: 'REINTRODUCED',
+  ignored: 'IGNORED',
+};
 
 // Severity icons
 const severityIcons: Record<string, string> = {
@@ -45,15 +61,88 @@ const severityExplanations: Record<string, Record<string, string>> = {
     low: 'Values differ but have context qualifiers (dev vs prod)',
     medium: 'Same concept has different values across documentation',
   },
+  'external-link': {
+    high: 'External URL is broken or unreachable',
+    medium: 'External URL timed out during check',
+    low: 'External URL could not be verified (CORS)',
+  },
 };
 
 function getExplanation(type: string, severity: string): string {
   return severityExplanations[type]?.[severity] || 'This issue should be reviewed';
 }
 
-export default function IssuesTable({ inconsistencies, onReset }: IssuesTableProps) {
+export default function IssuesTable({
+  inconsistencies,
+  onReset: _onReset,
+  issueStatusMap,
+  onStatusChange,
+  onBulkStatusChange,
+  onAssigneeChange,
+  deltaSummary
+}: IssuesTableProps) {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterDelta, setFilterDelta] = useState<string>('all');
+  const [filterAssignee, setFilterAssignee] = useState<string>('all');
+  const [showResolved, setShowResolved] = useState<boolean>(false);
+  const [fingerprints, setFingerprints] = useState<Map<string, string>>(new Map());
+  const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
+  const [editingAssignee, setEditingAssignee] = useState<string | null>(null);
+  const [assigneeInput, setAssigneeInput] = useState<string>('');
+
+  // Generate fingerprints for all issues on mount
+  useEffect(() => {
+    const generateFingerprints = async () => {
+      const fpMap = new Map<string, string>();
+      for (const issue of inconsistencies) {
+        const fp = await generateIssueFingerprint(issue);
+        fpMap.set(issue.id, fp);
+      }
+      setFingerprints(fpMap);
+    };
+    generateFingerprints();
+  }, [inconsistencies]);
+
+  // Helper to get status for an issue
+  const getIssueStatus = (issueId: string): StoredIssue['status'] | undefined => {
+    const fp = fingerprints.get(issueId);
+    if (!fp || !issueStatusMap) return undefined;
+    return issueStatusMap.get(fp)?.status;
+  };
+
+  // Helper to get stored ID for an issue
+  const getStoredId = (issueId: string): string | undefined => {
+    const fp = fingerprints.get(issueId);
+    if (!fp || !issueStatusMap) return undefined;
+    return issueStatusMap.get(fp)?.id;
+  };
+
+  // Helper to get assignee for an issue
+  const getIssueAssignee = (issueId: string): string | undefined => {
+    const fp = fingerprints.get(issueId);
+    if (!fp || !issueStatusMap) return undefined;
+    return issueStatusMap.get(fp)?.assignee;
+  };
+
+  // Helper to get delta classification for an issue
+  const getDeltaClassification = (issueId: string): DeltaClassification | undefined => {
+    if (!deltaSummary || deltaSummary.isFirstRun) return undefined;
+    const fp = fingerprints.get(issueId);
+    if (!fp) return undefined;
+    const issueDelta = deltaSummary.issues.find(d => d.fingerprint === fp);
+    return issueDelta?.classification;
+  };
+
+  // Count issues by delta classification
+  const deltaCounts = deltaSummary && !deltaSummary.isFirstRun
+    ? {
+        new: deltaSummary.newCount,
+        persisting: deltaSummary.persistingCount,
+        reintroduced: deltaSummary.reintroducedCount,
+        ignored: deltaSummary.ignoredCount,
+      }
+    : null;
 
   // Filter inconsistencies
   let filteredIssues = inconsistencies;
@@ -63,6 +152,32 @@ export default function IssuesTable({ inconsistencies, onReset }: IssuesTablePro
   if (filterType !== 'all') {
     filteredIssues = filteredIssues.filter(inc => inc.type === filterType);
   }
+  // Filter by assignee
+  if (filterAssignee === 'unassigned') {
+    filteredIssues = filteredIssues.filter(inc => !getIssueAssignee(inc.id));
+  } else if (filterAssignee !== 'all') {
+    filteredIssues = filteredIssues.filter(inc => getIssueAssignee(inc.id) === filterAssignee);
+  }
+  // Filter by delta classification
+  if (filterDelta !== 'all' && deltaSummary && !deltaSummary.isFirstRun) {
+    filteredIssues = filteredIssues.filter(inc => {
+      const classification = getDeltaClassification(inc.id);
+      return classification === filterDelta;
+    });
+  }
+  // Filter out resolved/ignored unless showResolved is true
+  if (!showResolved) {
+    filteredIssues = filteredIssues.filter(inc => {
+      const status = getIssueStatus(inc.id);
+      return !status || status === 'open';
+    });
+  }
+
+  // Count resolved/ignored
+  const resolvedCount = inconsistencies.filter(inc => {
+    const status = getIssueStatus(inc.id);
+    return status === 'resolved' || status === 'ignored';
+  }).length;
 
   // Count by severity
   const severityCounts = inconsistencies.reduce((acc, inc) => {
@@ -72,6 +187,59 @@ export default function IssuesTable({ inconsistencies, onReset }: IssuesTablePro
 
   // Get unique types
   const types = [...new Set(inconsistencies.map(inc => inc.type))];
+
+  // Get unique assignees for filter
+  const assignees = [...new Set(
+    inconsistencies
+      .map(inc => getIssueAssignee(inc.id))
+      .filter((a): a is string => !!a)
+  )].sort();
+
+  // Selection helpers
+  const toggleSelection = (issueId: string) => {
+    setSelectedIssues(prev => {
+      const next = new Set(prev);
+      if (next.has(issueId)) {
+        next.delete(issueId);
+      } else {
+        next.add(issueId);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const allIds = new Set(filteredIssues.map(i => i.id));
+    setSelectedIssues(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedIssues(new Set());
+  };
+
+  // Bulk action handlers
+  const handleBulkAction = (status: StoredIssue['status']) => {
+    if (!onBulkStatusChange) return;
+
+    const updates: Array<{ issueId: string; fingerprint: string; status: StoredIssue['status'] }> = [];
+
+    for (const issueId of selectedIssues) {
+      const fp = fingerprints.get(issueId);
+      const storedId = getStoredId(issueId);
+      if (fp && storedId) {
+        updates.push({ issueId: storedId, fingerprint: fp, status });
+      }
+    }
+
+    if (updates.length > 0) {
+      onBulkStatusChange(updates);
+      clearSelection();
+    }
+  };
+
+  // Count selected that can be actioned
+  const selectedCount = selectedIssues.size;
+  const canBulkAction = selectedCount > 0 && onBulkStatusChange;
 
   if (inconsistencies.length === 0) {
     return (
@@ -95,6 +263,33 @@ export default function IssuesTable({ inconsistencies, onReset }: IssuesTablePro
           <span className="severity-badge low">{severityCounts.low || 0} Low</span>
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {canBulkAction && (
+        <div className="bulk-action-bar">
+          <span className="bulk-selected-count">{selectedCount} selected</span>
+          <div className="bulk-actions">
+            <button
+              className="bulk-action-btn bulk-action-btn--resolve"
+              onClick={() => handleBulkAction('resolved')}
+            >
+              Resolve All
+            </button>
+            <button
+              className="bulk-action-btn bulk-action-btn--ignore"
+              onClick={() => handleBulkAction('ignored')}
+            >
+              Ignore All
+            </button>
+            <button
+              className="bulk-action-btn bulk-action-btn--clear"
+              onClick={clearSelection}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter controls */}
       <div className="issues-controls">
@@ -125,43 +320,213 @@ export default function IssuesTable({ inconsistencies, onReset }: IssuesTablePro
             ))}
           </select>
         </div>
+
+        {assignees.length > 0 && (
+          <div className="filter-group">
+            <label htmlFor="assignee-filter">Assignee:</label>
+            <select
+              id="assignee-filter"
+              value={filterAssignee}
+              onChange={(e) => setFilterAssignee(e.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="unassigned">Unassigned</option>
+              {assignees.map(assignee => (
+                <option key={assignee} value={assignee}>{assignee}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {deltaCounts && (
+          <div className="filter-group">
+            <label htmlFor="delta-filter">Change:</label>
+            <select
+              id="delta-filter"
+              value={filterDelta}
+              onChange={(e) => setFilterDelta(e.target.value)}
+            >
+              <option value="all">All Changes</option>
+              <option value="new">New ({deltaCounts.new})</option>
+              <option value="persisting">Persisting ({deltaCounts.persisting})</option>
+              {deltaCounts.reintroduced > 0 && (
+                <option value="reintroduced">Reintroduced ({deltaCounts.reintroduced})</option>
+              )}
+              {deltaCounts.ignored > 0 && (
+                <option value="ignored">Ignored ({deltaCounts.ignored})</option>
+              )}
+            </select>
+          </div>
+        )}
+
+        {resolvedCount > 0 && (
+          <div className="filter-group filter-group--toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showResolved}
+                onChange={(e) => setShowResolved(e.target.checked)}
+              />
+              Show resolved/ignored ({resolvedCount})
+            </label>
+          </div>
+        )}
+
+        {onBulkStatusChange && filteredIssues.length > 0 && (
+          <div className="filter-group filter-group--select">
+            <button
+              className="select-all-btn"
+              onClick={selectedCount === filteredIssues.length ? clearSelection : selectAll}
+            >
+              {selectedCount === filteredIssues.length ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Issues list */}
       <div className="issues-list">
-        {filteredIssues.map((issue) => (
-          <div
-            key={issue.id}
-            className={`issue-card issue-card-${issue.severity}`}
-          >
-            <div className="issue-header">
-              <span className={`issue-severity severity-${issue.severity}`}>
-                {severityIcons[issue.severity]}
-              </span>
-              <span className="issue-type">{issue.type.replace(/-/g, ' ')}</span>
-            </div>
+        {filteredIssues.map((issue) => {
+          const status = getIssueStatus(issue.id);
+          const storedId = getStoredId(issue.id);
+          const fp = fingerprints.get(issue.id);
+          const isResolved = status === 'resolved';
+          const isIgnored = status === 'ignored';
+          const deltaClass = getDeltaClassification(issue.id);
 
-            <div className="issue-message">{issue.message}</div>
+          const isSelected = selectedIssues.has(issue.id);
 
-            <div className="issue-location">
-              {issue.location.filePath}
-              {issue.location.lineNumber && `:${issue.location.lineNumber}`}
-            </div>
-
-            {issue.context && (
-              <div className="issue-context">
-                <code>{issue.context}</code>
+          return (
+            <div
+              key={issue.id}
+              className={`issue-card issue-card-${issue.severity}${isResolved ? ' issue-card--resolved' : ''}${isIgnored ? ' issue-card--ignored' : ''}${isSelected ? ' issue-card--selected' : ''}`}
+            >
+              <div className="issue-header">
+                {onBulkStatusChange && (
+                  <label className="issue-checkbox" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelection(issue.id)}
+                    />
+                  </label>
+                )}
+                <span className={`issue-severity severity-${issue.severity}`}>
+                  {severityIcons[issue.severity]}
+                </span>
+                <span className="issue-type">{issue.type.replace(/-/g, ' ')}</span>
+                {deltaClass && deltaClass !== 'persisting' && (
+                  <span className={`issue-delta-badge issue-delta-badge--${deltaClass}`}>
+                    {deltaLabels[deltaClass]}
+                  </span>
+                )}
+                {status && status !== 'open' && (
+                  <span className={`issue-status-badge issue-status-badge--${status}`}>
+                    {status}
+                  </span>
+                )}
               </div>
-            )}
 
-            <div className="issue-footer">
-              <span className="issue-explanation">{getExplanation(issue.type, issue.severity)}</span>
-              {issue.suggestion && (
-                <span className="issue-suggestion">{issue.suggestion}</span>
+              <div className="issue-message">{issue.message}</div>
+
+              <div className="issue-location">
+                {issue.location.filePath}
+                {issue.location.lineNumber && `:${issue.location.lineNumber}`}
+              </div>
+
+              {issue.context && (
+                <div className="issue-context">
+                  <code>{issue.context}</code>
+                </div>
+              )}
+
+              <div className="issue-footer">
+                <span className="issue-explanation">{getExplanation(issue.type, issue.severity)}</span>
+                {issue.suggestion && (
+                  <span className="issue-suggestion">{issue.suggestion}</span>
+                )}
+              </div>
+
+              {/* Assignee */}
+              {onAssigneeChange && storedId && fp && (
+                <div className="issue-assignee">
+                  {editingAssignee === issue.id ? (
+                    <form
+                      className="assignee-edit-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const trimmed = assigneeInput.trim();
+                        onAssigneeChange(storedId, fp, trimmed || undefined);
+                        setEditingAssignee(null);
+                        setAssigneeInput('');
+                      }}
+                    >
+                      <input
+                        className="assignee-input"
+                        type="text"
+                        value={assigneeInput}
+                        onChange={(e) => setAssigneeInput(e.target.value)}
+                        placeholder="Name..."
+                        autoFocus
+                        onBlur={() => {
+                          const trimmed = assigneeInput.trim();
+                          onAssigneeChange(storedId, fp, trimmed || undefined);
+                          setEditingAssignee(null);
+                          setAssigneeInput('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setEditingAssignee(null);
+                            setAssigneeInput('');
+                          }
+                        }}
+                      />
+                    </form>
+                  ) : (
+                    <button
+                      className={`assignee-btn${getIssueAssignee(issue.id) ? ' assignee-btn--assigned' : ''}`}
+                      onClick={() => {
+                        setEditingAssignee(issue.id);
+                        setAssigneeInput(getIssueAssignee(issue.id) || '');
+                      }}
+                    >
+                      {getIssueAssignee(issue.id) || 'Assign'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {onStatusChange && storedId && fp && (
+                <div className="issue-actions">
+                  {status !== 'resolved' && (
+                    <button
+                      className="issue-status-btn issue-status-btn--resolve"
+                      onClick={() => onStatusChange(storedId, fp, 'resolved')}
+                    >
+                      ✓ Resolve
+                    </button>
+                  )}
+                  {status !== 'ignored' && (
+                    <button
+                      className="issue-status-btn issue-status-btn--ignore"
+                      onClick={() => onStatusChange(storedId, fp, 'ignored')}
+                    >
+                      ✗ Ignore
+                    </button>
+                  )}
+                  {(status === 'resolved' || status === 'ignored') && (
+                    <button
+                      className="issue-status-btn issue-status-btn--reopen"
+                      onClick={() => onStatusChange(storedId, fp, 'open')}
+                    >
+                      ↺ Reopen
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredIssues.length === 0 && (

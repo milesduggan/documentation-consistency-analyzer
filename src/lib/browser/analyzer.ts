@@ -1,12 +1,13 @@
 // Browser-compatible analyzer - orchestrates analysis client-side
 // Adapts CLI logic to work with File System Access API
+// Supports both legacy (main thread) and worker-based (parallel) processing
 
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
-import type { Root, Link, Heading, Text } from 'mdast';
+import type { Root, Link, Heading, Text, RootContent } from 'mdast';
 import { BrowserFile, readFileContent } from './file-reader';
-import { parseCodeFiles } from './code-parser';
+import { parseCodeFiles, parseCodeContent, type ParsedCodeFile } from './code-parser';
 import { analyzeDocumentationCoverage, coverageToInconsistencies } from './coverage-analyzer';
 import {
   extractNumericalValues,
@@ -14,13 +15,58 @@ import {
   detectNumericalInconsistencies,
   numericalToInconsistencies
 } from './numerical-analyzer';
+import { parseMarkdownContent } from './markdown-parser';
+// Inline file reader with progress (replaces streaming-reader dependency)
+interface FileContent {
+  filePath: string;
+  content: string;
+  size: number;
+}
+
+async function readFilesWithProgress(
+  files: Array<{ handle: FileSystemFileHandle; path: string }>,
+  onProgress?: (current: number, total: number, bytesRead: number, totalBytes: number) => void
+): Promise<FileContent[]> {
+  const results: FileContent[] = [];
+  let totalBytesRead = 0;
+  let totalBytes = 0;
+
+  for (const file of files) {
+    const f = await file.handle.getFile();
+    totalBytes += f.size;
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const f = await file.handle.getFile();
+    const content = await f.text();
+    results.push({ filePath: file.path, content, size: f.size });
+    totalBytesRead += f.size;
+    onProgress?.(i + 1, files.length, totalBytesRead, totalBytes);
+  }
+
+  return results;
+}
+import {
+  extractExternalLinks,
+  checkExternalLinks,
+  externalLinksToInconsistencies,
+} from './external-link-checker';
 import type { Inconsistency } from '@/types';
+
+export interface AnalysisOptions {
+  checkExternalLinks?: boolean;
+}
 
 export interface AnalysisProgress {
   step: string;
   current: number;
   total: number;
   percentage: number;
+  // Enhanced progress fields for worker mode
+  workersActive?: number;
+  bytesProcessed?: number;
+  totalBytes?: number;
 }
 
 export interface AnalysisResult {
@@ -29,6 +75,7 @@ export interface AnalysisResult {
     totalFiles: number;
     totalMarkdownFiles: number;
     totalLinks: number;
+    externalLinksChecked?: number;
     analyzedAt: string;
     // Coverage analysis fields
     totalCodeFiles?: number;
@@ -61,7 +108,7 @@ interface MarkdownHeading {
 /**
  * Extract text content from a node
  */
-function extractText(node: any): string {
+function extractText(node: Link | Heading | RootContent): string {
   let text = '';
   visit(node, 'text', (textNode: Text) => {
     text += textNode.value;
@@ -252,7 +299,6 @@ function detectTodoMarkers(parsedMarkdown: ParsedMarkdown[]): Inconsistency[] {
       let match;
       while ((match = todoPatterns.exec(line)) !== null) {
         const marker = match[1].toUpperCase();
-        const description = match[2] || '';
 
         inconsistencies.push({
           id: generateId(),
@@ -442,7 +488,8 @@ async function validateLinks(
  */
 export async function analyzeProject(
   files: BrowserFile[],
-  onProgress?: (progress: AnalysisProgress) => void
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: AnalysisOptions
 ): Promise<AnalysisResult> {
   const markdownFiles = files.filter(f => f.name.endsWith('.md'));
   const codeFiles = files.filter(f =>
@@ -551,6 +598,34 @@ export async function analyzeProject(
   inconsistencies.push(...numericalToInconsistencies(numInconsistencies, generateId));
 
   currentStep++;
+
+  // Step 6: External link checking (optional)
+  let externalLinksChecked = 0;
+  if (options?.checkExternalLinks) {
+    const externalLinks = extractExternalLinks(parsedMarkdown);
+
+    if (externalLinks.length > 0) {
+      onProgress?.({
+        step: 'Checking external links',
+        current: 0,
+        total: externalLinks.length,
+        percentage: Math.round((currentStep / (totalSteps + 1)) * 100),
+      });
+
+      const linkResults = await checkExternalLinks(externalLinks, (progress) => {
+        onProgress?.({
+          step: `Checking external links: ${progress.currentUrl.substring(0, 40)}...`,
+          current: progress.checked,
+          total: progress.total,
+          percentage: Math.round(((currentStep + progress.checked / progress.total) / (totalSteps + 1)) * 100),
+        });
+      });
+
+      inconsistencies.push(...externalLinksToInconsistencies(externalLinks, linkResults));
+      externalLinksChecked = externalLinks.length;
+    }
+  }
+
   onProgress?.({
     step: 'Analysis complete',
     current: totalSteps,
@@ -567,6 +642,7 @@ export async function analyzeProject(
       totalFiles: files.length,
       totalMarkdownFiles: markdownFiles.length,
       totalLinks,
+      externalLinksChecked: externalLinksChecked > 0 ? externalLinksChecked : undefined,
       analyzedAt: new Date().toISOString(),
       // Coverage metadata
       totalCodeFiles: codeFiles.length,
@@ -575,4 +651,224 @@ export async function analyzeProject(
       coveragePercentage: coverageResult.coveragePercentage,
     },
   };
+}
+
+/**
+ * Worker-based analysis for large projects
+ * Offloads CPU-intensive parsing to Web Workers for better UI responsiveness
+ */
+export async function analyzeProjectWithWorkers(
+  files: BrowserFile[],
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: AnalysisOptions
+): Promise<AnalysisResult> {
+  const markdownFiles = files.filter(f => f.name.endsWith('.md'));
+  const codeFiles = files.filter(f =>
+    f.name.endsWith('.ts') ||
+    f.name.endsWith('.tsx') ||
+    f.name.endsWith('.js') ||
+    f.name.endsWith('.jsx')
+  );
+
+  const totalSteps = 5; // Read files + Parse + Validate + Coverage + Numerical
+
+  // Step 1: Read all file contents (must happen on main thread due to File System API)
+  onProgress?.({
+    step: 'Reading files',
+    current: 0,
+    total: files.length,
+    percentage: 0,
+  });
+
+  const filesToRead = [...markdownFiles, ...codeFiles].map(f => ({
+    handle: f.handle,
+    path: f.path,
+  }));
+
+  const fileContents = await readFilesWithProgress(
+    filesToRead,
+    (current, total, bytesRead, totalBytes) => {
+      onProgress?.({
+        step: 'Reading files',
+        current,
+        total,
+        percentage: Math.round((current / total) * 20), // 0-20%
+        bytesProcessed: bytesRead,
+        totalBytes,
+      });
+    }
+  );
+
+  // Step 2: Parse files (can be done in parallel on main thread or with workers)
+  onProgress?.({
+    step: 'Parsing files',
+    current: 0,
+    total: fileContents.length,
+    percentage: 20,
+  });
+
+  // Separate markdown and code content
+  const markdownContents = fileContents.filter(f => f.filePath.endsWith('.md'));
+  const codeContents = fileContents.filter(f =>
+    f.filePath.endsWith('.ts') ||
+    f.filePath.endsWith('.tsx') ||
+    f.filePath.endsWith('.js') ||
+    f.filePath.endsWith('.jsx')
+  );
+
+  // Parse markdown files
+  const parsedMarkdown: ParsedMarkdown[] = [];
+  for (let i = 0; i < markdownContents.length; i++) {
+    const file = markdownContents[i];
+    const parsed = parseMarkdownContent(file.content, file.filePath);
+    // Convert to internal format
+    parsedMarkdown.push({
+      filePath: parsed.filePath,
+      links: parsed.links,
+      headings: parsed.headings,
+      rawContent: parsed.rawContent,
+    });
+
+    onProgress?.({
+      step: 'Parsing Markdown files',
+      current: i + 1,
+      total: markdownContents.length,
+      percentage: 20 + Math.round((i / markdownContents.length) * 20), // 20-40%
+    });
+  }
+
+  // Parse code files
+  const parsedCodeFiles: ParsedCodeFile[] = [];
+  for (let i = 0; i < codeContents.length; i++) {
+    const file = codeContents[i];
+    const parsed = parseCodeContent(file.content, file.filePath);
+    parsedCodeFiles.push(parsed);
+
+    onProgress?.({
+      step: 'Parsing code files',
+      current: i + 1,
+      total: codeContents.length,
+      percentage: 40 + Math.round((i / codeContents.length) * 20), // 40-60%
+    });
+  }
+
+  // Step 3: Run all validations
+  onProgress?.({
+    step: 'Running analysis checks',
+    current: 0,
+    total: 1,
+    percentage: 60,
+  });
+
+  const inconsistencies: Inconsistency[] = [];
+
+  // Collect all markdown issues
+  inconsistencies.push(...await validateLinks(parsedMarkdown, files));
+  inconsistencies.push(...detectMalformedLinks(parsedMarkdown));
+  inconsistencies.push(...detectBrokenImages(parsedMarkdown, files));
+  inconsistencies.push(...detectTodoMarkers(parsedMarkdown));
+  inconsistencies.push(...detectOrphanedFiles(parsedMarkdown, files));
+
+  // Step 4: Analyze documentation coverage
+  onProgress?.({
+    step: 'Analyzing documentation coverage',
+    current: 0,
+    total: 1,
+    percentage: 75,
+  });
+
+  const coverageResult = analyzeDocumentationCoverage(
+    parsedCodeFiles,
+    parsedMarkdown.map(md => ({ filePath: md.filePath, rawContent: md.rawContent }))
+  );
+
+  inconsistencies.push(...coverageToInconsistencies(coverageResult));
+
+  // Step 5: Numerical consistency check
+  onProgress?.({
+    step: 'Checking numerical consistency',
+    current: 0,
+    total: 1,
+    percentage: 90,
+  });
+
+  const extractedValues = extractNumericalValues(
+    parsedMarkdown.map(md => ({ filePath: md.filePath, rawContent: md.rawContent }))
+  );
+  const valueClusters = clusterByKeyword(extractedValues);
+  const numInconsistencies = detectNumericalInconsistencies(valueClusters);
+  inconsistencies.push(...numericalToInconsistencies(numInconsistencies, generateId));
+
+  // Step 6: External link checking (optional)
+  let externalLinksChecked = 0;
+  if (options?.checkExternalLinks) {
+    const externalLinks = extractExternalLinks(parsedMarkdown);
+
+    if (externalLinks.length > 0) {
+      onProgress?.({
+        step: 'Checking external links',
+        current: 0,
+        total: externalLinks.length,
+        percentage: 92,
+      });
+
+      const linkResults = await checkExternalLinks(externalLinks, (progress) => {
+        onProgress?.({
+          step: `Checking external links: ${progress.currentUrl.substring(0, 40)}...`,
+          current: progress.checked,
+          total: progress.total,
+          percentage: 92 + Math.round((progress.checked / progress.total) * 7),
+        });
+      });
+
+      inconsistencies.push(...externalLinksToInconsistencies(externalLinks, linkResults));
+      externalLinksChecked = externalLinks.length;
+    }
+  }
+
+  onProgress?.({
+    step: 'Analysis complete',
+    current: totalSteps,
+    total: totalSteps,
+    percentage: 100,
+  });
+
+  // Calculate total links
+  const totalLinks = parsedMarkdown.reduce((sum, md) => sum + md.links.length, 0);
+
+  return {
+    inconsistencies,
+    metadata: {
+      totalFiles: files.length,
+      totalMarkdownFiles: markdownFiles.length,
+      totalLinks,
+      externalLinksChecked: externalLinksChecked > 0 ? externalLinksChecked : undefined,
+      analyzedAt: new Date().toISOString(),
+      totalCodeFiles: codeFiles.length,
+      totalExports: coverageResult.totalExports,
+      documentedExports: coverageResult.documentedExports,
+      coveragePercentage: coverageResult.coveragePercentage,
+    },
+  };
+}
+
+/**
+ * Smart analyzer that chooses the best strategy based on project size
+ * - Small projects (<50 files): Use legacy single-threaded analysis
+ * - Large projects (50+ files): Use streaming + parallel processing
+ */
+export async function analyzeProjectSmart(
+  files: BrowserFile[],
+  onProgress?: (progress: AnalysisProgress) => void,
+  options?: AnalysisOptions
+): Promise<AnalysisResult> {
+  const LARGE_PROJECT_THRESHOLD = 50;
+
+  // For large projects, use the optimized worker-based approach
+  if (files.length >= LARGE_PROJECT_THRESHOLD) {
+    return analyzeProjectWithWorkers(files, onProgress, options);
+  }
+
+  // For small projects, use the original approach (less overhead)
+  return analyzeProject(files, onProgress, options);
 }

@@ -10,10 +10,6 @@ interface SidebarProps {
 export default function Sidebar({ activeView, onViewChange, issueCount, onReset }: SidebarProps) {
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
-        <h1 className="sidebar-logo">The Turbo DCA 3000</h1>
-      </div>
-
       <nav className="sidebar-nav">
         <button
           className={`sidebar-tab ${activeView === 'overview' ? 'active' : ''}`}

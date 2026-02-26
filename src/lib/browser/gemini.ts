@@ -145,7 +145,10 @@ export async function sendToGemini(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorData = await response.json().catch((e) => {
+        console.warn('Failed to parse API error response:', e);
+        return {};
+      });
       const errorMessage = errorData?.error?.message || response.statusText;
 
       if (response.status === 400) {

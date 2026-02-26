@@ -228,3 +228,26 @@ export function getAllExportNames(parsedFiles: ParsedCodeFile[]): Map<string, Co
 
   return exportMap;
 }
+
+/**
+ * Parse code content directly (worker-compatible version)
+ * Does not require file handles - just content string
+ */
+export function parseCodeContent(content: string, filePath: string): ParsedCodeFile {
+  const exports = extractExports(filePath, content);
+  return {
+    filePath,
+    exports,
+    rawContent: content,
+  };
+}
+
+/**
+ * Batch parse multiple code files from content
+ * Useful for worker batch processing
+ */
+export function parseCodeBatch(
+  files: Array<{ filePath: string; content: string }>
+): ParsedCodeFile[] {
+  return files.map(({ filePath, content }) => parseCodeContent(content, filePath));
+}

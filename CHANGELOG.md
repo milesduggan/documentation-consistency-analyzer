@@ -2,6 +2,49 @@
 
 All notable changes to the Documentation Consistency Analyzer will be documented in this file.
 
+## [0.4.0] - 2026-02-25 - Dashboard, Persistence & Team Features ✅
+
+### Added
+- **Project Dashboard** - Multi-project management view
+  - Project cards with health scores and trend sparklines
+  - Re-analyze projects from dashboard
+  - Empty state with onboarding prompt
+- **IndexedDB Persistence** - All data survives browser refresh
+  - Projects, analyses, and issues stored locally
+  - Issue fingerprinting for stable identity across runs
+  - Health score calculation (0-100) based on severity and coverage
+- **Delta Tracking** - See what changed between analysis runs
+  - NEW, PERSISTING, RESOLVED, REINTRODUCED classifications
+  - Regression alerts for new HIGH severity issues
+  - Health score delta with attribution
+- **Issue Assignment** - Team triage support
+  - Inline editable assignee per issue
+  - Filter by assignee (All / Unassigned / specific person)
+  - Assignments persist in IndexedDB
+- **Project History** - View past analysis runs with trends
+- **Enhanced Export** - CI/CD report format with thresholds
+- **External Link Checker** - Validates HTTP/HTTPS URLs
+- **Stats Ticker** - Real-time analysis metrics in header
+- **8 Detection Types** (2 new)
+  - Undocumented exports (code without docs)
+  - Orphaned documentation (docs referencing removed code)
+
+### Technical
+- 18 new files, 12 modified files
+- New: db.ts, storage.ts, delta.ts, fingerprint.ts, crypto.ts
+- New: Dashboard.tsx, ProjectCard.tsx, ProjectHistory.tsx, Sparkline.tsx
+- New: StatsTicker.tsx, TurboSnail.tsx, Providers.tsx, TickerContext.tsx
+- Modified: page.tsx, IssuesTable.tsx, AnalysisSummary.tsx, analyzer.ts
+- Removed file-watcher and streaming-reader dependencies (unused)
+
+### Improved
+- Sidebar navigation between Overview and Results views
+- Bulk issue status changes (resolve/ignore multiple)
+- Issue status persistence (open/resolved/ignored)
+- Confidence scoring per issue type
+
+---
+
 ## [0.3.0] - 2026-01-18 - Enhanced Analysis & Context Summary ✅
 
 ### Added
