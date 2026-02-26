@@ -3,20 +3,19 @@
 ## Overview
 Documentation Consistency Analyzer is a **browser-based web application** for analyzing software project documentation. It runs entirely **client-side** - your files never leave your computer. The tool scans Markdown files for broken internal links and documentation issues.
 
-## Current Status: Phase 1 MVP Complete ✅
-
+## Current Status: Phase 1 MVP Complete
 **What works now:**
-- ✅ Browser-based file upload (drag-drop or file picker)
-- ✅ Client-side analysis (no server, files stay local)
-- ✅ Markdown link validation (broken links and anchors)
-- ✅ Real-time progress tracking
-- ✅ Filterable results table by severity
+-Browser-based file upload (drag-drop or file picker)
+-Client-side analysis (no server, files stay local)
+-Markdown link validation (broken links and anchors)
+-Real-time progress tracking
+-Filterable results table by severity
 
 **What's NOT in Phase 1:**
-- ❌ AI-powered semantic analysis (future phase)
-- ❌ Code comment extraction (future phase)
-- ❌ Conflicting statement detection (future phase)
-- ❌ Multi-user features (future phase)
+-AI-powered semantic analysis (future phase)
+-Code comment extraction (future phase)
+-Conflicting statement detection (future phase)
+-Multi-user features (future phase)
 
 ## Quick Start
 
@@ -75,13 +74,13 @@ Documentation Consistency Analyzer is a **browser-based web application** for an
 ## Browser Compatibility
 
 **Supported:**
-- ✅ Chrome 86+
-- ✅ Edge 86+
-- ✅ Opera 72+
+-Chrome 86+
+-Edge 86+
+-Opera 72+
 
 **Not supported:**
-- ❌ Firefox (File System Access API not available)
-- ❌ Safari (File System Access API not available)
+-Firefox (File System Access API not available)
+-Safari (File System Access API not available)
 
 ## Project Structure
 

@@ -39,11 +39,11 @@ We need a web application that can handle file processing (backend) and display 
 - Can add React UI components easily
 
 **Consequences:**
-- ✅ Faster development (one codebase, one framework)
-- ✅ Built-in optimizations (code splitting, image optimization)
-- ✅ Easy local deployment
-- ⚠️ Slightly heavier than minimal Node.js server
-- ⚠️ Learning curve if team unfamiliar with Next.js
+- [+] Faster development (one codebase, one framework)
+- [+] Built-in optimizations (code splitting, image optimization)
+- [+] Easy local deployment
+- [!] Slightly heavier than minimal Node.js server
+- [!] Learning curve if team unfamiliar with Next.js
 
 ---
 
@@ -70,11 +70,11 @@ Documentation inconsistencies range from simple (broken links) to complex (conce
 - Progressive enhancement: rules work offline, AI is optional
 
 **Consequences:**
-- ✅ Best accuracy (catches simple and complex issues)
-- ✅ Graceful degradation (works without AI API)
-- ✅ Cost-effective (only use AI where needed)
-- ⚠️ More complex implementation (two analysis paths)
-- ⚠️ Requires API key management for AI features
+- [+] Best accuracy (catches simple and complex issues)
+- [+] Graceful degradation (works without AI API)
+- [+] Cost-effective (only use AI where needed)
+- [!] More complex implementation (two analysis paths)
+- [!] Requires API key management for AI features
 
 ---
 
@@ -102,12 +102,12 @@ MVP is single-user, internal tool. Need to store analysis results, cached embedd
 - Can migrate to database later without changing interfaces
 
 **Consequences:**
-- ✅ Zero setup complexity
-- ✅ Easy debugging (human-readable files)
-- ✅ Fast enough for MVP scale (10k files)
-- ⚠️ Not suitable for multi-user (file locking issues)
-- ⚠️ No complex queries (must load and filter in memory)
-- ⚠️ Will need migration for Phase 2 (multi-user)
+- [+] Zero setup complexity
+- [+] Easy debugging (human-readable files)
+- [+] Fast enough for MVP scale (10k files)
+- [!] Not suitable for multi-user (file locking issues)
+- [!] No complex queries (must load and filter in memory)
+- [!] Will need migration for Phase 2 (multi-user)
 
 ---
 
@@ -134,11 +134,11 @@ Complex data structures (ContentObject, Inconsistency, NormalizedContent) need c
 - Industry standard for modern JavaScript projects
 
 **Consequences:**
-- ✅ Fewer runtime errors
-- ✅ Better developer experience
-- ✅ Easier onboarding (types explain code)
-- ⚠️ Slightly slower development initially (must define types)
-- ⚠️ Compilation step required
+- [+] Fewer runtime errors
+- [+] Better developer experience
+- [+] Easier onboarding (types explain code)
+- [!] Slightly slower development initially (must define types)
+- [!] Compilation step required
 
 ---
 
@@ -165,11 +165,11 @@ Need high-quality embeddings for semantic similarity analysis. Must balance cost
 - Users can choose based on needs (cost vs speed vs privacy)
 
 **Consequences:**
-- ✅ High-quality semantic analysis by default
-- ✅ Works offline when needed
-- ✅ User controls cost/performance trade-off
-- ⚠️ Requires API key setup for best experience
-- ⚠️ More complex configuration
+- [+] High-quality semantic analysis by default
+- [+] Works offline when needed
+- [+] User controls cost/performance trade-off
+- [!] Requires API key setup for best experience
+- [!] More complex configuration
 
 ---
 
@@ -196,11 +196,11 @@ Many programming languages exist. Need to prioritize to ship MVP quickly while c
 - Can add more languages in Phase 2 with clear patterns established
 
 **Consequences:**
-- ✅ Faster time to working MVP
-- ✅ Focused testing on fewer parsers
-- ✅ Clear upgrade path (add languages incrementally)
-- ⚠️ Won't work for Java/Go/Rust projects initially
-- ⚠️ Users may request more languages quickly
+- [+] Faster time to working MVP
+- [+] Focused testing on fewer parsers
+- [+] Clear upgrade path (add languages incrementally)
+- [!] Won't work for Java/Go/Rust projects initially
+- [!] Users may request more languages quickly
 
 ---
 
@@ -228,11 +228,11 @@ Different inconsistency types require different algorithms. Want to optimize for
 - Clear separation of concerns (easier to test/debug)
 
 **Consequences:**
-- ✅ Fast initial feedback (structural pass <5 sec)
-- ✅ Optimized performance (index once, query many times)
-- ✅ Modular (can skip passes if not needed)
-- ⚠️ More complex orchestration code
-- ⚠️ Need to merge results from multiple passes
+- [+] Fast initial feedback (structural pass <5 sec)
+- [+] Optimized performance (index once, query many times)
+- [+] Modular (can skip passes if not needed)
+- [!] More complex orchestration code
+- [!] Need to merge results from multiple passes
 
 ---
 
@@ -259,11 +259,11 @@ Parsing and embedding generation are expensive. Want to cache aggressively but i
 - Industry standard approach (Git uses similar strategy)
 
 **Consequences:**
-- ✅ Accurate cache invalidation (no stale data)
-- ✅ Works even if files moved/renamed
-- ✅ Easy to implement with Node.js crypto module
-- ⚠️ Must hash every file (small overhead)
-- ⚠️ Cache doesn't transfer between identical projects (different paths)
+- [+] Accurate cache invalidation (no stale data)
+- [+] Works even if files moved/renamed
+- [+] Easy to implement with Node.js crypto module
+- [!] Must hash every file (small overhead)
+- [!] Cache doesn't transfer between identical projects (different paths)
 
 ---
 
@@ -309,23 +309,23 @@ Created browser-compatible analyzer using:
 - `src/components/IssuesTable.tsx` - Results display
 
 **Consequences:**
-- ✅ MVP shipped in single development session
-- ✅ Zero infrastructure costs (client-side only)
-- ✅ User privacy (files never uploaded)
-- ✅ Immediate value (broken link detection)
-- ✅ Browser compatibility clearly documented
-- ⚠️ Limited to Chrome/Edge/Opera (Firefox/Safari lack File System Access API)
-- ⚠️ No AI-powered analysis yet (deferred to Phase 2)
-- ⚠️ No code comment extraction yet (deferred to Phase 2)
-- ⚠️ Documentation needs update to reflect reduced scope
+- [+] MVP shipped in single development session
+- [+] Zero infrastructure costs (client-side only)
+- [+] User privacy (files never uploaded)
+- [+] Immediate value (broken link detection)
+- [+] Browser compatibility clearly documented
+- [!] Limited to Chrome/Edge/Opera (Firefox/Safari lack File System Access API)
+- [!] No AI-powered analysis yet (deferred to Phase 2)
+- [!] No code comment extraction yet (deferred to Phase 2)
+- [!] Documentation needs update to reflect reduced scope
 
 **Success Criteria Met:**
-- Analyze projects with Markdown files ✅
-- Detect broken internal links ✅
-- Detect broken anchor links ✅
-- Real-time progress indicators ✅
-- Filterable results table ✅
-- Works entirely client-side ✅
+- Analyze projects with Markdown files [Done]
+- Detect broken internal links [Done]
+- Detect broken anchor links [Done]
+- Real-time progress indicators [Done]
+- Filterable results table [Done]
+- Works entirely client-side [Done]
 
 **Next Steps (Phase 2):**
 - Add semantic analysis with OpenAI embeddings
@@ -369,8 +369,8 @@ Created browser-compatible analyzer using:
 - Reason 3
 
 **Consequences:**
-- ✅ Benefit 1
-- ✅ Benefit 2
-- ⚠️ Trade-off 1
-- ⚠️ Trade-off 2
+- [+] Benefit 1
+- [+] Benefit 2
+- [!] Trade-off 1
+- [!] Trade-off 2
 ```

@@ -1,6 +1,6 @@
 {
   "name": "documentation-consistency-analyzer",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Internal tool to analyze documentation for inconsistencies and provide actionable insights",
   "private": true,
   "scripts": {

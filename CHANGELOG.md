@@ -2,7 +2,22 @@
 
 All notable changes to the Documentation Consistency Analyzer will be documented in this file.
 
-## [0.4.0] - 2026-02-25 - Dashboard, Persistence & Team Features ✅
+## [0.4.1] - 2026-02-25 - Security & Accessibility Hardening
+
+### Fixed
+- **API key security** - Moved Gemini API key from URL query string to `x-goog-api-key` header
+- **Session storage** - API key now uses sessionStorage instead of localStorage (clears on tab close)
+- **Focus indicators** - Replaced `outline: none` with proper `:focus-visible` outlines on all inputs (WCAG 2.4.7)
+
+### Added
+- **Security headers** in next.config.js: X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+
+### Improved
+- Removed emoticons from all documentation files for cleaner formatting
+
+---
+
+## [0.4.0] - 2026-02-25 - Dashboard, Persistence & Team Features
 
 ### Added
 - **Project Dashboard** - Multi-project management view
@@ -45,8 +60,7 @@ All notable changes to the Documentation Consistency Analyzer will be documented
 
 ---
 
-## [0.3.0] - 2026-01-18 - Enhanced Analysis & Context Summary ✅
-
+## [0.3.0] - 2026-01-18 - Enhanced Analysis & Context Summary
 ### Added
 - **Analysis Summary Component** - Comprehensive context display
   - Analysis metadata (timestamp, files scanned, links checked)
@@ -88,8 +102,7 @@ All notable changes to the Documentation Consistency Analyzer will be documented
 
 ---
 
-## [0.2.0] - 2026-01-18 - Phase 1 Web UI Complete ✅
-
+## [0.2.0] - 2026-01-18 - Phase 1 Web UI Complete
 ### Added
 - Browser-based web UI with Next.js 14
 - Client-side file upload (drag-drop and file picker)

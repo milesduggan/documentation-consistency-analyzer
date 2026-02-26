@@ -82,7 +82,7 @@ src/
 ### TypeScript Style
 
 ```typescript
-// ✅ GOOD: Clear types, descriptive names
+// GOOD: Clear types, descriptive names
 interface ContentObject {
   id: string;
   filePath: string;
@@ -93,7 +93,7 @@ async function discoverFiles(rootPath: string): Promise<ContentObject[]> {
   // Implementation
 }
 
-// ❌ BAD: Vague types, unclear purpose
+// BAD: Vague types, unclear purpose
 function processStuff(data: any): any {
   // What does this do?
 }
@@ -102,7 +102,7 @@ function processStuff(data: any): any {
 ### Error Handling
 
 ```typescript
-// ✅ GOOD: Specific error types, recovery strategy
+// GOOD: Specific error types, recovery strategy
 class FileReadError extends Error {
   constructor(public filePath: string, message: string) {
     super(message);
@@ -121,7 +121,7 @@ try {
   }
 }
 
-// ❌ BAD: Silent failures, generic errors
+// BAD: Silent failures, generic errors
 try {
   await readFile(path);
 } catch (error) {
@@ -133,19 +133,19 @@ try {
 ### Performance Guidelines
 
 ```typescript
-// ✅ GOOD: Parallel with concurrency limit
+// GOOD: Parallel with concurrency limit
 import pLimit from 'p-limit';
 const limit = pLimit(100);
 await Promise.all(
   files.map(file => limit(() => readFile(file)))
 );
 
-// ❌ BAD: Sequential processing (too slow)
+// BAD: Sequential processing (too slow)
 for (const file of files) {
   await readFile(file); // Waits for each file
 }
 
-// ❌ BAD: Unlimited parallelism (memory explosion)
+// BAD: Unlimited parallelism (memory explosion)
 await Promise.all(files.map(file => readFile(file)));
 ```
 
@@ -240,19 +240,19 @@ tests/
 ### Commit Messages
 
 ```bash
-# ✅ GOOD: Clear, specific, explains why
+# GOOD: Clear, specific, explains why
 feat: add broken link detection to analysis layer
 
 Implements Pass 1 of analysis strategy. Detects both internal
 and external broken links with configurable timeout.
 
-# ✅ GOOD: Fix with context
+# GOOD: Fix with context
 fix: handle UTF-16 encoding in file reader
 
 Previously crashed on UTF-16 files. Now detects encoding
 with chardet and converts to UTF-8.
 
-# ❌ BAD: Vague, no context
+# BAD: Vague, no context
 Update stuff
 Fix bug
 WIP
@@ -446,25 +446,25 @@ node --cpu-prof --cpu-prof-dir=./profiles node_modules/.bin/next dev
 ### 1. **Async/Await Mistakes**
 
 ```typescript
-// ❌ BAD: Doesn't wait
+// BAD: Doesn't wait
 files.forEach(async (file) => {
   await processFile(file); // forEach doesn't wait!
 });
 
-// ✅ GOOD: Properly awaits
+// GOOD: Properly awaits
 await Promise.all(files.map(file => processFile(file)));
 ```
 
 ### 2. **Memory Leaks**
 
 ```typescript
-// ❌ BAD: Holds references
+// BAD: Holds references
 const cache = new Map();
 files.forEach(file => {
   cache.set(file, largeObject); // Never cleared!
 });
 
-// ✅ GOOD: Use WeakMap or implement eviction
+// GOOD: Use WeakMap or implement eviction
 const cache = new WeakMap(); // GC can collect
 // OR
 const cache = new LRU({ max: 1000 }); // Auto-evicts
@@ -475,10 +475,10 @@ const cache = new LRU({ max: 1000 }); // Auto-evicts
 ```typescript
 import path from 'path';
 
-// ❌ BAD: String concatenation
+// BAD: String concatenation
 const filePath = rootDir + '/' + fileName; // Breaks on Windows
 
-// ✅ GOOD: Use path module
+// GOOD: Use path module
 const filePath = path.join(rootDir, fileName);
 ```
 
@@ -492,4 +492,4 @@ const filePath = path.join(rootDir, fileName);
 
 ---
 
-**Happy coding!** 🚀
+**Happy coding!**

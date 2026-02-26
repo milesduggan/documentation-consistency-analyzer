@@ -1,5 +1,5 @@
 // Gemini API client for AI-powered documentation analysis
-// Client-side only - API key stored in browser localStorage
+// Client-side only - API key stored in browser sessionStorage (cleared on tab close)
 
 import type { AnalysisResult } from './analyzer';
 
@@ -21,7 +21,7 @@ export interface GeminiError {
  */
 export function saveApiKey(key: string): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    sessionStorage.setItem(API_KEY_STORAGE_KEY, key);
   }
 }
 
@@ -30,7 +30,7 @@ export function saveApiKey(key: string): void {
  */
 export function getApiKey(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(API_KEY_STORAGE_KEY);
+  return sessionStorage.getItem(API_KEY_STORAGE_KEY);
 }
 
 /**
@@ -38,7 +38,7 @@ export function getApiKey(): string | null {
  */
 export function clearApiKey(): void {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    sessionStorage.removeItem(API_KEY_STORAGE_KEY);
   }
 }
 
@@ -130,10 +130,11 @@ export async function sendToGemini(
   }
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
         contents,

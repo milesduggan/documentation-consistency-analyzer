@@ -298,11 +298,11 @@ cd ..
 
 Once setup is complete:
 
-1. ✅ Read [docs/architecture.md](architecture.md) to understand the system design
-2. ✅ Read [docs/decisions.md](decisions.md) to understand key choices
-3. ✅ Check out `src/lib/` to see the implementation
-4. ✅ Run tests with `npm test` to verify everything works
-5. ✅ Start coding! See [docs/contributing.md](contributing.md) for guidelines
+1. Read [docs/architecture.md](architecture.md) to understand the system design
+2. Read [docs/decisions.md](decisions.md) to understand key choices
+3. Check out `src/lib/` to see the implementation
+4. Run tests with `npm test` to verify everything works
+5. Start coding! See [docs/contributing.md](contributing.md) for guidelines
 
 ---
 
@@ -315,4 +315,4 @@ Once setup is complete:
 
 ---
 
-**Setup complete?** You're ready to start developing! 🚀
+**Setup complete?** You're ready to start developing!

@@ -102,9 +102,10 @@ input[type="password"] {
   color: var(--color-text);
 }
 
-input[type="text"]:focus,
-input[type="password"]:focus {
-  outline: none;
+input[type="text"]:focus-visible,
+input[type="password"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
   border-color: var(--color-primary);
 }
 
@@ -119,8 +120,9 @@ select {
   cursor: pointer;
 }
 
-select:focus {
-  outline: none;
+select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
   border-color: var(--color-primary);
 }
 
@@ -704,8 +706,9 @@ select:focus {
   color: var(--color-text);
 }
 
-.ai-chat-input textarea:focus {
-  outline: none;
+.ai-chat-input textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
   border-color: var(--color-primary);
 }
 
@@ -1026,8 +1029,11 @@ select:focus {
   border: 1px solid var(--color-primary);
   background: var(--color-bg);
   color: var(--color-text);
-  outline: none;
   width: 120px;
+}
+.assignee-input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 
 /* Filter toggle */

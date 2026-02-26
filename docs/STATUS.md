@@ -11,28 +11,28 @@ Browser-based documentation consistency analyzer with delta tracking. Runs 100% 
 
 | Category | Feature | Status |
 |----------|---------|--------|
-| **Input** | Drag-drop folder upload | ✅ |
-| | File System Access API | ✅ |
-| **Detection** | Broken links (files + anchors) | ✅ |
-| | Broken images | ✅ |
-| | Malformed links | ✅ |
-| | TODO/FIXME markers | ✅ |
-| | Orphaned files | ✅ |
-| | Undocumented exports | ✅ |
-| | Orphaned documentation | ✅ |
-| | Numerical inconsistencies | ✅ |
-| **Tracking** | Issue fingerprinting | ✅ |
-| | Status (open/resolved/ignored) | ✅ |
-| | Delta classification | ✅ |
-| | Health scores | ✅ |
-| **Storage** | IndexedDB persistence | ✅ |
-| | Project history | ✅ |
-| | Analysis runs | ✅ |
-| **UI** | Dashboard with projects | ✅ |
-| | Project history view | ✅ |
-| | Filter by severity/type/delta | ✅ |
-| | Delta badges on issues | ✅ |
-| | Export (JSON/clipboard) | ✅ |
+| **Input** | Drag-drop folder upload | Done |
+| | File System Access API | Done |
+| **Detection** | Broken links (files + anchors) | Done |
+| | Broken images | Done |
+| | Malformed links | Done |
+| | TODO/FIXME markers | Done |
+| | Orphaned files | Done |
+| | Undocumented exports | Done |
+| | Orphaned documentation | Done |
+| | Numerical inconsistencies | Done |
+| **Tracking** | Issue fingerprinting | Done |
+| | Status (open/resolved/ignored) | Done |
+| | Delta classification | Done |
+| | Health scores | Done |
+| **Storage** | IndexedDB persistence | Done |
+| | Project history | Done |
+| | Analysis runs | Done |
+| **UI** | Dashboard with projects | Done |
+| | Project history view | Done |
+| | Filter by severity/type/delta | Done |
+| | Delta badges on issues | Done |
+| | Export (JSON/clipboard) | Done |
 
 ---
 
