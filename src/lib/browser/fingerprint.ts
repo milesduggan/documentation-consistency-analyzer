@@ -36,7 +36,7 @@ export async function generateIssueFingerprint(issue: Inconsistency): Promise<st
  * Normalize a message for fingerprinting
  * Removes line numbers, specific values, and other variable parts
  */
-function normalizeMessage(message: string): string {
+export function normalizeMessage(message: string): string {
   return message
     // Remove line numbers like "line 42" or "L42"
     .replace(/\bline\s*\d+/gi, 'line N')

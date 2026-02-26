@@ -26,6 +26,55 @@ export interface ExternalCheckProgress {
   currentUrl: string;
 }
 
+// Private IP / SSRF blocklist
+const BLOCKED_HOSTS = [
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '[::1]',
+];
+
+const PRIVATE_IP_PATTERNS = [
+  /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,          // 10.x.x.x
+  /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/, // 172.16-31.x.x
+  /^192\.168\.\d{1,3}\.\d{1,3}$/,              // 192.168.x.x
+  /^169\.254\.\d{1,3}\.\d{1,3}$/,              // link-local
+];
+
+/**
+ * Validate a URL for safe fetching (SSRF protection)
+ * Returns null if valid, or an error string if blocked
+ */
+export function validateUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'Invalid URL';
+  }
+
+  // Only allow http/https
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return `Blocked scheme: ${parsed.protocol}`;
+  }
+
+  const hostname = parsed.hostname;
+
+  // Block known localhost variants
+  if (BLOCKED_HOSTS.includes(hostname)) {
+    return `Blocked host: ${hostname}`;
+  }
+
+  // Block private IP ranges
+  for (const pattern of PRIVATE_IP_PATTERNS) {
+    if (pattern.test(hostname)) {
+      return `Blocked private IP: ${hostname}`;
+    }
+  }
+
+  return null;
+}
+
 // Rate limiting configuration
 const RATE_LIMIT_MS = 200; // 200ms between requests (5 req/sec)
 const TIMEOUT_MS = 10000; // 10 second timeout per request
@@ -42,9 +91,24 @@ function sleep(ms: number): Promise<void> {
  * Check a single external URL
  * Uses fetch with HEAD method to minimize bandwidth
  */
-async function checkUrl(url: string): Promise<ExternalLinkResult> {
+async function checkUrl(url: string, parentSignal?: AbortSignal): Promise<ExternalLinkResult> {
+  // SSRF protection
+  const blocked = validateUrl(url);
+  if (blocked) {
+    return { url, status: 'blocked', errorMessage: blocked };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  // Link parent abort to this request's controller
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      clearTimeout(timeoutId);
+      throw new DOMException('Aborted', 'AbortError');
+    }
+    parentSignal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
 
   try {
     // Try HEAD first (lighter weight)
@@ -121,7 +185,8 @@ export function extractExternalLinks(
  */
 export async function checkExternalLinks(
   links: ExternalLink[],
-  onProgress?: (progress: ExternalCheckProgress) => void
+  onProgress?: (progress: ExternalCheckProgress) => void,
+  parentSignal?: AbortSignal
 ): Promise<Map<string, ExternalLinkResult>> {
   const results = new Map<string, ExternalLinkResult>();
 
@@ -131,6 +196,11 @@ export async function checkExternalLinks(
   let checked = 0;
 
   for (let i = 0; i < links.length; i += MAX_CONCURRENT) {
+    // Check parent abort between batches
+    if (parentSignal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+
     const batch = links.slice(i, i + MAX_CONCURRENT);
 
     // Check batch in parallel
@@ -142,7 +212,7 @@ export async function checkExternalLinks(
           currentUrl: link.url,
         });
 
-        const result = await checkUrl(link.url);
+        const result = await checkUrl(link.url, parentSignal);
         checked++;
         return result;
       })

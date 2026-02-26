@@ -56,6 +56,7 @@ import type { Inconsistency } from '@/types';
 
 export interface AnalysisOptions {
   checkExternalLinks?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface AnalysisProgress {
@@ -103,6 +104,15 @@ interface MarkdownHeading {
   level: number;
   text: string;
   lineNumber?: number;
+}
+
+/**
+ * Throw if the given signal has been aborted
+ */
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException('Analysis cancelled', 'AbortError');
+  }
 }
 
 /**
@@ -491,6 +501,9 @@ export async function analyzeProject(
   onProgress?: (progress: AnalysisProgress) => void,
   options?: AnalysisOptions
 ): Promise<AnalysisResult> {
+  const signal = options?.signal;
+  throwIfAborted(signal);
+
   const markdownFiles = files.filter(f => f.name.endsWith('.md'));
   const codeFiles = files.filter(f =>
     f.name.endsWith('.ts') ||
@@ -513,6 +526,7 @@ export async function analyzeProject(
   const parsedMarkdown: ParsedMarkdown[] = [];
 
   for (const file of markdownFiles) {
+    throwIfAborted(signal);
     const content = await readFileContent(file.handle);
     const parsed = await parseMarkdown(file.path, content);
     parsedMarkdown.push(parsed);
@@ -525,6 +539,8 @@ export async function analyzeProject(
       percentage: Math.round((currentStep / totalSteps) * 100),
     });
   }
+
+  throwIfAborted(signal);
 
   // Step 2: Parse all code files for coverage analysis
   onProgress?.({
@@ -544,6 +560,7 @@ export async function analyzeProject(
   });
 
   currentStep += codeFiles.length;
+  throwIfAborted(signal);
 
   // Step 3: Run all validations
   onProgress?.({
@@ -563,6 +580,7 @@ export async function analyzeProject(
   inconsistencies.push(...detectOrphanedFiles(parsedMarkdown, files));
 
   currentStep++;
+  throwIfAborted(signal);
 
   // Step 4: Analyze documentation coverage
   onProgress?.({
@@ -581,6 +599,7 @@ export async function analyzeProject(
   inconsistencies.push(...coverageToInconsistencies(coverageResult));
 
   currentStep++;
+  throwIfAborted(signal);
 
   // Step 5: Numerical consistency check
   onProgress?.({
@@ -619,7 +638,7 @@ export async function analyzeProject(
           total: progress.total,
           percentage: Math.round(((currentStep + progress.checked / progress.total) / (totalSteps + 1)) * 100),
         });
-      });
+      }, signal);
 
       inconsistencies.push(...externalLinksToInconsistencies(externalLinks, linkResults));
       externalLinksChecked = externalLinks.length;
@@ -662,6 +681,9 @@ export async function analyzeProjectWithWorkers(
   onProgress?: (progress: AnalysisProgress) => void,
   options?: AnalysisOptions
 ): Promise<AnalysisResult> {
+  const signal = options?.signal;
+  throwIfAborted(signal);
+
   const markdownFiles = files.filter(f => f.name.endsWith('.md'));
   const codeFiles = files.filter(f =>
     f.name.endsWith('.ts') ||
@@ -698,6 +720,8 @@ export async function analyzeProjectWithWorkers(
       });
     }
   );
+
+  throwIfAborted(signal);
 
   // Step 2: Parse files (can be done in parallel on main thread or with workers)
   onProgress?.({
@@ -752,6 +776,8 @@ export async function analyzeProjectWithWorkers(
     });
   }
 
+  throwIfAborted(signal);
+
   // Step 3: Run all validations
   onProgress?.({
     step: 'Running analysis checks',
@@ -769,6 +795,8 @@ export async function analyzeProjectWithWorkers(
   inconsistencies.push(...detectTodoMarkers(parsedMarkdown));
   inconsistencies.push(...detectOrphanedFiles(parsedMarkdown, files));
 
+  throwIfAborted(signal);
+
   // Step 4: Analyze documentation coverage
   onProgress?.({
     step: 'Analyzing documentation coverage',
@@ -783,6 +811,8 @@ export async function analyzeProjectWithWorkers(
   );
 
   inconsistencies.push(...coverageToInconsistencies(coverageResult));
+
+  throwIfAborted(signal);
 
   // Step 5: Numerical consistency check
   onProgress?.({
@@ -819,7 +849,7 @@ export async function analyzeProjectWithWorkers(
           total: progress.total,
           percentage: 92 + Math.round((progress.checked / progress.total) * 7),
         });
-      });
+      }, signal);
 
       inconsistencies.push(...externalLinksToInconsistencies(externalLinks, linkResults));
       externalLinksChecked = externalLinks.length;

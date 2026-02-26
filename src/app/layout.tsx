@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Providers } from '@/components/Providers'
 import StatsTicker from '@/components/StatsTicker'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ export default function RootLayout({
       <body>
         <Providers>
           <StatsTicker />
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </Providers>
       </body>
     </html>

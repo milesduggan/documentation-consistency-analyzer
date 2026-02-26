@@ -30,6 +30,7 @@
     "@types/babel__generator": "^7.27.0",
     "@types/babel__template": "^7.4.4",
     "@types/istanbul-lib-report": "^3.0.3",
+    "@types/jest": "^30.0.0",
     "@types/ms": "^2.1.0",
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.48",

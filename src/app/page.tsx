@@ -34,6 +34,7 @@ export default function Home() {
   const [deltaSummary, setDeltaSummary] = useState<DeltaSummary | null>(null);
   // Ref for re-analyze
   const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const { setTickerData } = useTickerContext();
 
@@ -85,6 +86,11 @@ export default function Home() {
     options?: { checkExternalLinks?: boolean }
   ) => {
     try {
+      // Abort any previous analysis
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       // Store project name and handle for watch mode
       setProjectName(dirHandle.name);
       dirHandleRef.current = dirHandle;
@@ -107,7 +113,10 @@ export default function Home() {
       // Step 2: Analyze project
       const analysisResults = await analyzeProject(files, (prog) => {
         setProgress(prog);
-      }, { checkExternalLinks: options?.checkExternalLinks });
+      }, {
+        checkExternalLinks: options?.checkExternalLinks,
+        signal: abortController.signal,
+      });
 
       // Step 3: Save to IndexedDB
       try {
@@ -138,6 +147,11 @@ export default function Home() {
       setState('results');
       setActiveView('overview');
     } catch (err) {
+      // If user cancelled, return to upload silently
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setState('upload');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
       setState('upload');
     }
@@ -325,6 +339,13 @@ export default function Home() {
         <p className="progress-files">
           {progress.current} / {progress.total} files
         </p>
+
+        <button
+          className="cancel-button"
+          onClick={() => abortControllerRef.current?.abort()}
+        >
+          Cancel
+        </button>
       </div>
     );
   }
